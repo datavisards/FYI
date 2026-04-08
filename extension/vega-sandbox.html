@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FYI Vega Chart Sandbox</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: transparent; overflow: hidden; }
+      #chart-root { width: 100%; }
+      #chart-root .vega-embed { width: 100% !important; }
+      #chart-root .vega-embed summary { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="chart-root"></div>
+    <script type="module" src="./vega-sandbox.tsx"></script>
+  </body>
+</html>

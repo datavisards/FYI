@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "FYI",
+  "version": "0.1.0",
+  "description": "Fact-checking research tool: analyze claims and explore with AI, tables, and visualizations",
+  "permissions": [
+    "activeTab",
+    "sidePanel",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_security_policy": {
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; worker-src 'self' blob:; child-src 'self' blob:;"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "sandbox": {
+    "pages": ["extension/vega-sandbox.html", "extension/builder-sandbox.html", "extension/python-sandbox.html"]
+  },
+  "side_panel": {
+    "default_path": "extension/sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open FYI"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html"
+  }
+}
