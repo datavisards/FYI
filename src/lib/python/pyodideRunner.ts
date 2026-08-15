@@ -131,7 +131,7 @@ function getSandboxIframe(): HTMLIFrameElement {
 
   sandboxIframe = document.createElement('iframe')
   sandboxIframe.id = 'fyi-python-sandbox'
-  sandboxIframe.src = chrome.runtime.getURL('extension/python-sandbox.html')
+  sandboxIframe.src = chrome.runtime.getURL('extension/sandboxes/python.html')
   sandboxIframe.style.display = 'none'
   document.body.appendChild(sandboxIframe)
   return sandboxIframe

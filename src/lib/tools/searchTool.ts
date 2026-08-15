@@ -1,9 +1,15 @@
 /**
- * Web search tool — uses Groq Compound (web search).
+ * Web search tool.
+ *
+ * Search is performed BY a search-capable model (one that browses and returns
+ * citations) rather than by a separate search API. That keeps the tool to a
+ * single chat-completions call, but it means search only works on providers
+ * that serve such a model. See SEARCH_MODELS in src/lib/ai/providers.ts for
+ * which ones do.
  */
 import { registerTool, type ToolDefinition } from './registry'
 import { createCompletion } from '@/lib/openrouter/client'
-import { SEARCH_MODEL } from '@/lib/openrouter/models'
+import { resolveSearchModel } from '@/lib/ai/config'
 
 const definition: ToolDefinition = {
   type: 'function',
@@ -28,9 +34,16 @@ async function execute(args: Record<string, unknown>): Promise<string> {
   const query = String(args.query || '')
   if (!query) return 'Error: No search query provided'
 
+  const searchModel = resolveSearchModel()
+  if (!searchModel) {
+    // Reached only if the tool was offered despite being unsupported. Say so
+    // plainly so the model reports it rather than inventing sources.
+    return 'Web search is not available with the current API provider. Answer from the dataset and your own knowledge instead, and do not fabricate citations.'
+  }
+
   try {
     const response = await createCompletion({
-      model: SEARCH_MODEL,
+      model: searchModel,
       messages: [
         {
           role: 'system',

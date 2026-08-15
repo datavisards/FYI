@@ -6,6 +6,7 @@ import { useDataStore } from '@/stores/dataStore'
 import { useArticleStore } from '@/stores/articleStore'
 import { useChatStore, type AutoCheckResult, type AutoCheckStepEvent } from '@/stores/chatStore'
 import { apiFetch } from '@/lib/apiClient'
+import { NO_KEY_REASON, useHasApiKey } from '@/stores/settingsStore'
 import { eventLogger } from '@/lib/tracking/eventLogger'
 import { AutoCheckResultCard, AutoCheckProgressCard } from './AutoCheckResultCard'
 import { Zap, RotateCcw } from 'lucide-react'
@@ -16,10 +17,6 @@ import { VERDICT_BADGE } from '@/components/claim/constants'
 export function AutoCheckPanel() {
   const activeClaim = useExplorationStore((s) => s.activeClaim)
   const pageTableData = useDataStore((s) => s.pageTableData)
-  const article = useArticleStore((s) => {
-    const { articles, currentArticleId } = s
-    return articles.find((a) => a.$id === currentArticleId) || null
-  })
   const createConversation = useChatStore((s) => s.createConversation)
   const setActive = useChatStore((s) => s.setActiveConversation)
   const addMessage = useChatStore((s) => s.addMessage)
@@ -44,6 +41,8 @@ export function AutoCheckPanel() {
   }, [pageTableData])
 
   const hasDatasets = allCsvData.length > 0
+  // No key on the deployment, so a visitor's own is the only one there is.
+  const hasKey = useHasApiKey()
 
   // Restore cached result or reset when active claim changes
   useEffect(() => {
@@ -307,8 +306,18 @@ export function AutoCheckPanel() {
             !hasResult && hasClaim && 'bg-blue-600 hover:bg-blue-700 text-white'
           )}
           onClick={handleRun}
-          disabled={isRunning || !hasClaim || !hasDatasets}
-          title={!hasClaim ? 'Select a claim first' : !hasDatasets ? 'Upload a CSV dataset first' : hasResult ? 'Re-run Auto Check' : 'Run Auto Check on this claim'}
+          disabled={isRunning || !hasClaim || !hasDatasets || !hasKey}
+          title={
+            !hasKey
+              ? NO_KEY_REASON
+              : !hasClaim
+                ? 'Select a claim first'
+                : !hasDatasets
+                  ? 'Upload a CSV dataset first'
+                  : hasResult
+                    ? 'Re-run Auto Check'
+                    : 'Run Auto Check on this claim'
+          }
         >
           {hasResult
             ? <RotateCcw className="w-3 h-3" />

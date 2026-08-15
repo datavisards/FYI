@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="fyi-mark" viewBox="20.64 0 138.17 96.60" width="276.34" height="193.20" role="img" aria-label="FYI">
+  <title>FYI</title>
+  <!--
+    The FYI wordmark. Standalone and self-contained: embed it inline or via <object>,
+    not as an <img> src, or the hover below will not run.
+
+    THEME. Load it as "fyi-mark.svg" for the light palette and "fyi-mark.svg#dark" for
+    the dark one. The fragment targets the empty g#dark below, and :target flips the
+    custom properties on the art group.
+
+    It works this way because prefers-color-scheme was wrong here. An <object> is its
+    own browsing context, so that query reports the OS setting, while the app switches
+    theme with a class on html. Anyone whose OS and app theme disagreed got dark ink on
+    a dark header. The fragment lets the app state its own theme explicitly.
+
+    Colours are the app's design tokens, mirroring src/app/globals.css:
+
+      ink     token "foreground"        oklch(0.145 0 0)  /  dark oklch(0.985 0 0)
+      rule    token "muted-foreground"  oklch(0.556 0 0)  /  dark oklch(0.708 0 0), at 50%
+      hover   green-500 #00c758         /  dark green-400 #05df72
+
+    The hover green is the verified verdict colour from VERDICT_STYLES, so the mark
+    performs the loop the tool is for: a claim detected but not yet judged (dashed,
+    muted) resolving to verified (solid, green).
+
+    Geometry is generated, not hand-drawn. The letterforms are Inter at weight 600
+    converted to outlines, so nothing depends on the font loading. The rule is four
+    dashes and three gaps with gap = 0.6 x dash, fitted to the ink width so both ends
+    land flush and neither is clipped: d = 138.17 / 5.8 = 23.82, period = 38.12.
+  -->
+  <style>
+    .art {
+      --ink: oklch(0.145 0 0);
+      --rule: oklch(0.556 0 0 / 50%);
+      --verified: #00c758;
+    }
+    #dark:target ~ .art {
+      --ink: oklch(0.985 0 0);
+      --rule: oklch(0.708 0 0 / 50%);
+      --verified: #05df72;
+    }
+
+    .word { fill: var(--ink); }
+    .dashes { fill: var(--rule); }
+    .solid { fill: var(--verified); opacity: 0; }
+
+    /* Crossfade rather than filling the gaps: adjacent rounded rects would pinch
+       at the joins, so the solid state is its own rect. */
+    .dashes,
+    .solid {
+      transition: opacity 200ms;
+    }
+    .fyi-mark:hover .dashes { opacity: 0; }
+    .fyi-mark:hover .solid { opacity: 1; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dashes,
+      .solid {
+        transition: none;
+      }
+    }
+  </style>
+
+  <!-- Targeted by the #dark fragment. Empty on purpose; it only drives the selector. -->
+  <g id="dark"></g>
+
+  <g class="art">
+    <path class="word" transform="translate(13.33 72.75)" d="M7.31 0.00V-72.75H53.89V-61.77H20.35V-39.93H50.64V-29.09H20.35V0.00Z M85.60 0.00V-28.17L58.72 -72.75H73.95L86.95 -49.81Q89.02 -46.21 90.62 -42.78Q92.23 -39.35 93.94 -34.41H90.52Q92.19 -39.41 93.78 -42.87Q95.37 -46.33 97.33 -49.81L110.05 -72.75H125.21L98.61 -28.17V0.00Z M145.48 -72.75V0.00H132.44V-72.75Z"></path>
+
+    <g class="dashes">
+      <rect x="20.64" y="83.60" width="23.82" height="13" rx="2"></rect>
+      <rect x="58.76" y="83.60" width="23.82" height="13" rx="2"></rect>
+      <rect x="96.87" y="83.60" width="23.82" height="13" rx="2"></rect>
+      <rect x="134.99" y="83.60" width="23.82" height="13" rx="2"></rect>
+    </g>
+
+    <rect class="solid" x="20.64" y="83.60" width="138.17" height="13" rx="2"></rect>
+  </g>
+</svg>

@@ -80,7 +80,7 @@ function findDataset(name: string, datasets: CSVDataForTool[]): CSVDataForTool |
   )
 }
 
-function formatTable(headers: string[], rows: string[][], limit: number, rowIndices?: number[]): string {
+function formatTable(headers: string[], rows: string[][], limit: number): string {
   const display = rows.slice(0, limit)
   const lines = [headers.join(' | '), headers.map(() => '---').join(' | ')]
   for (const row of display) {

@@ -1,8 +1,15 @@
+export { OPTIONS } from '@/lib/cors'
+
 import { NextResponse } from 'next/server'
 import { createCompletion } from '@/lib/openrouter/client'
+import { readAiConfig, withAiConfig } from '@/lib/ai/config'
 import { DEFAULT_MODELS } from '@/lib/openrouter/models'
 
 export async function POST(request: Request) {
+  return withAiConfig(readAiConfig(request), () => handlePost(request))
+}
+
+async function handlePost(request: Request) {
   try {
     const { messages } = await request.json()
 

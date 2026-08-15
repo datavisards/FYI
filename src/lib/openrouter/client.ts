@@ -1,6 +1,28 @@
 import type { ToolDefinition, ToolCall } from '@/lib/tools/registry'
+import { resolveAiConfig, type AiConfig } from '@/lib/ai/config'
+import { SEARCH_MODEL } from '@/lib/openrouter/models'
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+/** A request already aimed at a search model keeps it, or it stops citing. */
+function applyModelOverride(model: string, config: AiConfig): string {
+  if (!config.model) return model
+  if (model === SEARCH_MODEL) return model
+  if (config.searchModel && model === config.searchModel) return model
+  return config.model
+}
+
+/** Providers echo keys back in errors; strip them before they reach the UI. */
+function redact(message: string, apiKey: string): string {
+  let out = message
+  if (apiKey) out = out.split(apiKey).join('[redacted]')
+  // Catch partially-echoed or differently-formatted keys too.
+  return out.replace(/\b(sk|gsk|xai|key)-[A-Za-z0-9_-]{4,}/gi, '[redacted]')
+}
+
+async function errorFrom(response: Response, apiKey: string): Promise<Error> {
+  const body = await response.json().catch(() => ({}))
+  const raw = body.error?.message || body.message || `API error (${response.status})`
+  return new Error(redact(String(raw), apiKey))
+}
 
 export interface OpenRouterMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -40,44 +62,61 @@ export interface OpenRouterResponse {
 export async function createCompletion(
   request: OpenRouterRequest
 ): Promise<OpenRouterResponse> {
-  const apiKey = process.env.OPENROUTER_API_KEY
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set')
+  const config = resolveAiConfig()
+  const { baseUrl, apiKey } = config
 
-  const response = await fetch(OPENROUTER_API_URL, {
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ ...request, stream: false }),
+    body: JSON.stringify({
+      ...request,
+      model: applyModelOverride(request.model, config),
+      stream: false,
+    }),
   })
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new Error(error.error?.message || error.message || 'API error')
+    throw await errorFrom(response, apiKey)
   }
 
   return response.json()
 }
 
-export async function* createStreamingCompletion(
+/**
+ * Config is resolved here, synchronously. An async generator's body does not
+ * run until the first next(), by which point the request-scoped store is gone,
+ * so resolving inside would silently fall back to the server key.
+ */
+export function createStreamingCompletion(
   request: OpenRouterRequest
 ): AsyncGenerator<string, void, unknown> {
-  const apiKey = process.env.OPENROUTER_API_KEY
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set')
+  return streamCompletion(request, resolveAiConfig())
+}
 
-  const response = await fetch(OPENROUTER_API_URL, {
+async function* streamCompletion(
+  request: OpenRouterRequest,
+  config: AiConfig
+): AsyncGenerator<string, void, unknown> {
+  const { baseUrl, apiKey } = config
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ ...request, stream: true }),
+    body: JSON.stringify({
+      ...request,
+      model: applyModelOverride(request.model, config),
+      stream: true,
+    }),
   })
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new Error(error.error?.message || error.message || 'API error')
+    throw await errorFrom(response, apiKey)
   }
 
   const reader = response.body?.getReader()

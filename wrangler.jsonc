@@ -1,0 +1,26 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	"name": "fyi",
+	// Pinned because this login can see more than one account, and wrangler
+	// refuses to guess. Not a secret: it appears in every dashboard URL.
+	"account_id": "9b158525fc448767160f88dad2de1e5e",
+	"compatibility_date": "2026-07-01",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	}
+	// Deliberately omitted from the adapter's template:
+	//
+	// - r2_buckets / WORKER_SELF_REFERENCE: these back OpenNext's incremental
+	//   cache. This app has no ISR (/ and /app are static, everything under
+	//   /api is dynamic), so there is nothing to cache and nothing to purge.
+	// - images / IMAGES binding: nothing imports next/image.
+	//
+	// Add them back if ISR or next/image is introduced.
+	//
+	// No secrets are needed: callers supply their own AI key per request, and
+	// the deployment holds none. If that ever changes, set them out of band so
+	// they never enter git, and use .dev.vars (gitignored) for `wrangler dev`.
+}

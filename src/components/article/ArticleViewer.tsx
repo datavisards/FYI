@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useMemo, useState, useCallback } from 'react'
+import { useRef, useEffect, useMemo, useCallback } from 'react'
 import { useArticleStore } from '@/stores/articleStore'
 import { useClaimStore } from '@/stores/claimStore'
 import { ClaimHighlight, ClaimPopover, TextSelectionToolbar } from '@/components/claim'
@@ -204,23 +204,6 @@ export function ArticleViewer({ article, articles, onClaimClick, onArticleChange
     return validClaims
   }, [isClaimDetectionComplete, detectedClaims, article.content, findBestOffset])
 
-  const handleClaimsDetected = useCallback((claims: Claim[], offsetsRelativeToFullArticle?: boolean) => {
-    let claimsToSet: Claim[]
-    if (!offsetsRelativeToFullArticle) {
-      claimsToSet = claims.map((c) => ({ ...c, source: 'ai' as const }))
-    } else {
-      const titleLen = article.title.length + 2 // title + "\n\n"
-      claimsToSet = claims
-        .filter((c) => c.startOffset >= titleLen)
-        .map((c) => ({
-          ...c,
-          startOffset: c.startOffset - titleLen,
-          endOffset: c.endOffset - titleLen,
-          source: 'ai' as const,
-        }))
-    }
-    setDetectedClaimsStore(claimsToSet)
-  }, [article.title.length, setDetectedClaimsStore])
 
   // Manual claims are added via addManualClaim in the toolbar; merge in useMemo shows them
   const handleManualClaimCreated = useCallback((_claim: Claim) => {
@@ -337,15 +320,15 @@ export function ArticleViewer({ article, articles, onClaimClick, onArticleChange
               </div>
             )}
             <h1 className="text-2xl font-bold mb-2">{article.title}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{article.source}</span>
-              {article.metadata.publishedDate && (
-                <>
-                  <span>|</span>
+            {(article.source || article.metadata.publishedDate) && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {article.source && <span>{article.source}</span>}
+                {article.source && article.metadata.publishedDate && <span>|</span>}
+                {article.metadata.publishedDate && (
                   <span>{formatDate(article.metadata.publishedDate)}</span>
-                </>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </header>
 
           {/* Article content with text selection support */}

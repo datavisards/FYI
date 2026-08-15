@@ -132,7 +132,7 @@ function VegaChartSandboxed({ spec, expandable, onExpand, className }: VegaChart
     )
   }
 
-  const iframeSrc = chrome.runtime.getURL('extension/vega-sandbox.html')
+  const iframeSrc = chrome.runtime.getURL('extension/sandboxes/vega.html')
 
   return (
     <div className={cn('relative rounded-lg border bg-white dark:bg-gray-900 p-2 overflow-hidden', className)}>

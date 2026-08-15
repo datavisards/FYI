@@ -1,6 +1,7 @@
 /**
  * Tool registry — type definitions and registration for LLM tool-calling.
  */
+import { resolveSearchModel } from '@/lib/ai/config'
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object'
@@ -55,10 +56,19 @@ export function registerTool(
 }
 
 export function getToolDefinitions(names?: string[]): ToolDefinition[] {
-  if (!names) return Array.from(toolRegistry.values()).map((t) => t.definition)
-  return names
-    .map((n) => toolRegistry.get(n)?.definition)
-    .filter((d): d is ToolDefinition => d != null)
+  const all = !names
+    ? Array.from(toolRegistry.values()).map((t) => t.definition)
+    : names
+        .map((n) => toolRegistry.get(n)?.definition)
+        .filter((d): d is ToolDefinition => d != null)
+
+  // Withhold web_search when the active provider has no search-capable model.
+  // Offering a tool that cannot succeed is worse than not offering it: the
+  // model calls it, gets an error, and often invents sources to recover.
+  if (!resolveSearchModel()) {
+    return all.filter((d) => d.function.name !== 'web_search')
+  }
+  return all
 }
 
 export function getToolExecutor(name: string): ToolExecutor | undefined {

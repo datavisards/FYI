@@ -3,8 +3,10 @@
  * - In Next.js app: undefined = use relative /api/* (same origin).
  * - In extension: tries localhost first, then falls back to remote.
  */
+import { AI_HEADERS } from '@/lib/ai/headers'
+
 const LOCAL_API_BASE = 'http://localhost:3000'
-const REMOTE_API_BASE = 'https://fyi-hyaj.onrender.com'
+const REMOTE_API_BASE = 'https://fyi.datavisards-hkust.workers.dev'
 
 export function isExtension(): boolean {
   return typeof chrome !== 'undefined' && !!chrome.runtime?.id
@@ -43,6 +45,30 @@ async function getApiBase(): Promise<string> {
 }
 
 /**
+ * The user's own API credentials, if they set any, as request headers.
+ *
+ * Read lazily from the store rather than imported at module scope, so this
+ * file stays usable from non-React contexts and from the extension.
+ */
+async function aiHeaders(): Promise<Record<string, string>> {
+  try {
+    const { useSettingsStore } = await import('@/stores/settingsStore')
+    const { apiKey, baseUrl, model, searchModel } = useSettingsStore.getState()
+    if (!apiKey.trim()) return {}
+
+    const headers: Record<string, string> = { [AI_HEADERS.key]: apiKey.trim() }
+    if (baseUrl.trim()) headers[AI_HEADERS.baseUrl] = baseUrl.trim()
+    if (model.trim()) headers[AI_HEADERS.model] = model.trim()
+    if (searchModel.trim()) headers[AI_HEADERS.searchModel] = searchModel.trim()
+    return headers
+  } catch {
+    // No store available (e.g. a non-browser caller). Fall back to the
+    // server's own key rather than failing the request.
+    return {}
+  }
+}
+
+/**
  * Fetch from API. In app uses relative path; in extension tries local then remote.
  */
 export async function apiFetch(
@@ -55,6 +81,7 @@ export async function apiFetch(
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(await aiHeaders()),
       ...init?.headers,
     },
     mode: base ? 'cors' : 'same-origin',

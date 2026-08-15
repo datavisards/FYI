@@ -1,5 +1,8 @@
+export { OPTIONS } from '@/lib/cors'
+
 import { NextResponse } from 'next/server'
 import { createCompletion } from '@/lib/openrouter/client'
+import { readAiConfig, withAiConfig } from '@/lib/ai/config'
 import { DEFAULT_MODELS } from '@/lib/openrouter/models'
 import { findClaimOffsets } from '@/lib/claims/parseClaimResponse'
 
@@ -38,7 +41,7 @@ REASONING STEPS for each sentence:
   (b) Could the asserted figure be verified against a structured dataset?
   (c) Is it stated as a fact (not an opinion, prediction, or question)?
   (d) Is the subject/scope specific enough to be checkable?
-  → If yes to all four: classify as a data claim.
+  â†’ If yes to all four: classify as a data claim.
 
 OUTPUT FORMAT:
 Return a JSON array of objects. Each object must have:
@@ -54,22 +57,22 @@ Return a JSON array of objects. Each object must have:
 FEW-SHOT EXAMPLES:
 
 Sentence: "In 2022, the average house price in the UK fell by 1.1% year-on-year."
-→ { "is_data_claim": true, "reasoning": "Asserts a specific quantitative change (1.1%) for a defined measure (house price), entity (UK), and time (2022), verifiable against housing data.", "data_fact_hint": "trend" }
+â†’ { "is_data_claim": true, "reasoning": "Asserts a specific quantitative change (1.1%) for a defined measure (house price), entity (UK), and time (2022), verifiable against housing data.", "data_fact_hint": "trend" }
 
 Sentence: "Christopher Nolan is widely regarded as one of the greatest directors of his generation."
-→ { "is_data_claim": false, "reasoning": "This is a qualitative opinion with no numeric assertion and cannot be verified against a dataset." }
+â†’ { "is_data_claim": false, "reasoning": "This is a qualitative opinion with no numeric assertion and cannot be verified against a dataset." }
 
 Sentence: "Oppenheimer's worldwide gross accounts for approximately 20% of Christopher Nolan's total box office earnings."
-→ { "is_data_claim": true, "reasoning": "Asserts a proportion (20%) of a quantitative measure (gross) for specific entities, verifiable against box office data.", "data_fact_hint": "proportion" }
+â†’ { "is_data_claim": true, "reasoning": "Asserts a proportion (20%) of a quantitative measure (gross) for specific entities, verifiable against box office data.", "data_fact_hint": "proportion" }
 
 Sentence: "The unemployment rate fell between April 2020 and March 2023."
-→ { "is_data_claim": true, "reasoning": "Asserts a directional change (trend) in a defined measure over a specific timeframe, verifiable against employment datasets.", "data_fact_hint": "trend" }
+â†’ { "is_data_claim": true, "reasoning": "Asserts a directional change (trend) in a defined measure over a specific timeframe, verifiable against employment datasets.", "data_fact_hint": "trend" }
 
 Sentence: "Trae Young ranked 4th in three-point attempts among point guards who played more than 60 games in 2023."
-→ { "is_data_claim": true, "reasoning": "Asserts a specific rank for a named entity within a defined subspace, verifiable against NBA statistics.", "data_fact_hint": "rank" }
+â†’ { "is_data_claim": true, "reasoning": "Asserts a specific rank for a named entity within a defined subspace, verifiable against NBA statistics.", "data_fact_hint": "rank" }
 
 Sentence: "Prices are expected to stabilize by the end of the year."
-→ { "is_data_claim": false, "reasoning": "This is a prediction, not an assertion of an existing quantitative fact verifiable against current data." }
+â†’ { "is_data_claim": false, "reasoning": "This is a prediction, not an assertion of an existing quantitative fact verifiable against current data." }
 
 ---
 
@@ -78,6 +81,10 @@ Now process the following article:
 {{ARTICLE_TEXT}}`
 
 export async function POST(request: Request) {
+  return withAiConfig(readAiConfig(request), () => handlePost(request))
+}
+
+async function handlePost(request: Request) {
   try {
     const { content, existingClaims } = await request.json()
 

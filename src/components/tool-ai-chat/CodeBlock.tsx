@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Play, ChevronDown, ChevronRight, Loader2, Copy, Check, RefreshCw } from 'lucide-react'
 import { executePython, initPyodide, isPyodideReady } from '@/lib/python/pyodideRunner'
+import { apiFetch } from '@/lib/apiClient'
+import { useHasApiKey } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
 
 const MAX_FIX_RETRIES = 2
@@ -42,6 +44,7 @@ export function CodeBlock({
   skipAutoRun = false,
 }: CodeBlockProps) {
   const [code, setCode] = useState(initialCode)
+  const hasApiKey = useHasApiKey()
   const [output, setOutput] = useState(initialOutput ?? '')
   const [error, setError] = useState<string | null>(null)
   const [isRunning, setIsRunning] = useState(false)
@@ -74,11 +77,12 @@ export function CodeBlock({
   }, [csvData])
 
   const attemptFix = useCallback(async (failedCode: string, errorMsg: string): Promise<string | null> => {
+    // Fires automatically on error, so an ungated attempt would be invisible.
+    if (!hasApiKey) return null
     try {
       const datasetInfo = buildDatasetInfo(csvData)
-      const res = await fetch('/api/ai/fix-python', {
+      const res = await apiFetch('/api/ai/fix-python', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: failedCode, error: errorMsg, datasetInfo }),
       })
       if (!res.ok) return null
@@ -87,7 +91,7 @@ export function CodeBlock({
     } catch {
       return null
     }
-  }, [csvData])
+  }, [csvData, hasApiKey])
 
   const handleRun = useCallback(async () => {
     if (language !== 'python') return

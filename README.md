@@ -19,13 +19,13 @@ This codebase comprises a [Next.js](https://nextjs.org/) web application and a [
 npm install
 ```
 
-### Environment Variables
+### API key
 
-Create a `.env.local` file:
+FYI has no key of its own. The AI features stay off until you supply one, which
+you enter in the app under **API key**. It is stored in your browser and sent
+with each request; the server never keeps it.
 
-```env
-OPENROUTER_API_KEY=your_openrouter_api_key   # Required for AI features
-```
+OpenRouter is the default, and any OpenAI-compatible endpoint works.
 
 ### Development
 

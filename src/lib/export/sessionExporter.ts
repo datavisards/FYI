@@ -26,7 +26,7 @@ export function downloadEventsAsCSV(events: StudyEvent[]) {
   })
   const csv = [headers.join(','), ...rows].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
-  triggerDownload(blob, `lokivis-events-${Date.now()}.csv`)
+  triggerDownload(blob, `fyi-events-${Date.now()}.csv`)
 }
 
 function csvEscape(value: string): string {

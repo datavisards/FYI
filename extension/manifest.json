@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FYI",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Fact-checking research tool: analyze claims and explore with AI, tables, and visualizations",
   "permissions": [
     "activeTab",
@@ -13,20 +13,30 @@
     "<all_urls>"
   ],
   "content_security_policy": {
-    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; worker-src 'self' blob:; child-src 'self' blob:;"
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:;"
   },
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "sandbox": {
-    "pages": ["extension/vega-sandbox.html", "extension/builder-sandbox.html", "extension/python-sandbox.html"]
+    "pages": ["extension/sandboxes/vega.html", "extension/sandboxes/builder.html", "extension/sandboxes/python.html"]
   },
   "side_panel": {
-    "default_path": "extension/sidepanel.html"
+    "default_path": "extension/pages/sidepanel.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Open FYI"
+    "default_title": "Open FYI",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
@@ -36,6 +46,6 @@
     }
   ],
   "options_ui": {
-    "page": "options.html"
+    "page": "extension/pages/options.html"
   }
 }

@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,12 +14,11 @@ import {
 interface DismissClaimDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  claimId: string
   claimText: string
   onConfirm: () => void
 }
 
-export function DismissClaimDialog({ open, onOpenChange, claimId, claimText, onConfirm }: DismissClaimDialogProps) {
+export function DismissClaimDialog({ open, onOpenChange, claimText, onConfirm }: DismissClaimDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>

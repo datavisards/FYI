@@ -1,7 +1,7 @@
 // src/lib/tracking/eventLogger.ts
 import { nanoid } from 'nanoid'
 // NOTE: circular reference is safe — only accessed inside function bodies, never at module init
-// eslint-disable-next-line import/no-cycle
+ 
 import { useExplorationStore } from '@/stores/explorationStore'
 import type { StudyEvent, StudyEventPayload } from '@/types/events'
 

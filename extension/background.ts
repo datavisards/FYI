@@ -2,6 +2,22 @@ chrome.action.onClicked.addListener((tab) => {
   chrome.sidePanel.open({ tabId: tab.id, windowId: tab.windowId })
 })
 
+/**
+ * Where to deliver a message aimed at a page.
+ *
+ * Highlights carry the tab they belong to, since their text offsets only make
+ * sense on that page. Messages about whatever the reader is looking at now,
+ * such as extraction, fall back to the active tab.
+ */
+function resolveTabId(payload: unknown): Promise<number | null> {
+  const named = (payload as { tabId?: number } | undefined)?.tabId
+  if (typeof named === 'number') return Promise.resolve(named)
+  return chrome.tabs
+    .query({ active: true, currentWindow: true })
+    .then(([tab]) => tab?.id ?? null)
+    .catch(() => null)
+}
+
 chrome.runtime.onMessage.addListener(
   (
     message: { type: string; payload?: unknown },
@@ -24,15 +40,14 @@ chrome.runtime.onMessage.addListener(
       return true
     }
     if (message.type === 'HIGHLIGHT_CLAIMS') {
-      chrome.tabs
-        .query({ active: true, currentWindow: true })
-        .then(([tab]) => {
-          if (tab?.id == null) {
-            sendResponse({ error: 'No active tab' })
+      resolveTabId(message.payload)
+        .then((tabId) => {
+          if (tabId == null) {
+            sendResponse({ error: 'No target tab' })
             return
           }
           chrome.tabs
-            .sendMessage(tab.id, { type: 'HIGHLIGHT_CLAIMS', payload: message.payload })
+            .sendMessage(tabId, { type: 'HIGHLIGHT_CLAIMS', payload: message.payload })
             .then(sendResponse)
             .catch((err) => sendResponse({ error: String(err) }))
         })
@@ -58,11 +73,10 @@ chrome.runtime.onMessage.addListener(
       return true
     }
     if (message.type === 'CLEAR_HIGHLIGHTS') {
-      chrome.tabs
-        .query({ active: true, currentWindow: true })
-        .then(([tab]) => {
-          if (tab?.id == null) return sendResponse(undefined)
-          chrome.tabs.sendMessage(tab.id, { type: 'CLEAR_HIGHLIGHTS' }).then(sendResponse).catch(() => sendResponse(undefined))
+      resolveTabId(message.payload)
+        .then((tabId) => {
+          if (tabId == null) return sendResponse(undefined)
+          chrome.tabs.sendMessage(tabId, { type: 'CLEAR_HIGHLIGHTS' }).then(sendResponse).catch(() => sendResponse(undefined))
         })
         .catch(() => sendResponse(undefined))
       return true

@@ -43,3 +43,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# vendored Pyodide runtime (~71 MB), fetched by extension/fetch-pyodide.mjs
+extension/vendor/
+
+
+# packaged extension artifact
+extension/*.zip
+
+
+# cloudflare workers
+.open-next/
+.dev.vars
+.wrangler/
+
+.wrangler-dryrun/
+

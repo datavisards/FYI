@@ -343,7 +343,6 @@ export const ClaimInvestigationPanel = memo(function ClaimInvestigationPanel({
         <DismissClaimDialog
           open={dismissDialogOpen}
           onOpenChange={setDismissDialogOpen}
-          claimId={selectedClaim.id}
           claimText={selectedClaim.text}
           onConfirm={() => {
             setDismissDialogOpen(false)

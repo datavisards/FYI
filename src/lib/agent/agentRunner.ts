@@ -3,7 +3,7 @@
  * and synthesis. Used by the agent API endpoint.
  */
 import { createCompletion, type OpenRouterMessage } from '@/lib/openrouter/client'
-import { getToolDefinitions, getToolExecutor } from '@/lib/tools/registry'
+import { getToolExecutor } from '@/lib/tools/registry'
 
 export interface AgentStep {
   id: string

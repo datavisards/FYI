@@ -1,13 +1,20 @@
+export { OPTIONS } from '@/lib/cors'
+
 import { NextResponse } from 'next/server'
 import { CHAT_MODEL } from '@/lib/openrouter/models'
 import { createPlan, executeStep, synthesize } from '@/lib/agent/agentRunner'
 import { registerSearchTool } from '@/lib/tools/searchTool'
 import { createSSEStream } from '@/lib/sse'
+import { readAiConfig, withAiConfig } from '@/lib/ai/config'
 
 // Register tools
 registerSearchTool()
 
 export async function POST(request: Request) {
+  return withAiConfig(readAiConfig(request), () => handlePost(request))
+}
+
+async function handlePost(request: Request) {
   try {
     const { question } = await request.json()
 

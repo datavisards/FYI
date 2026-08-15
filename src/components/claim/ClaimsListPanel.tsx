@@ -169,7 +169,6 @@ export function ClaimsListPanel({ onClaimClick, className }: ClaimsListPanelProp
       <DismissClaimDialog
         open={dismissTarget !== null}
         onOpenChange={(open) => { if (!open) setDismissTarget(null) }}
-        claimId={dismissTarget?.id ?? ''}
         claimText={dismissTarget?.text ?? ''}
         onConfirm={() => {
           if (dismissTarget) dismissClaim(dismissTarget.id)

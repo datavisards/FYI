@@ -4,28 +4,24 @@ import {
   createStreamingCompletion,
   type OpenRouterMessage,
 } from '@/lib/openrouter/client'
-import { CHAT_MODEL, SEARCH_MODEL, TOOL_AGENT_MODEL } from '@/lib/openrouter/models'
+// SEARCH_MODEL is no longer imported here: the search model is resolved per
+// request now, since it depends on which provider's key is in use.
+import { CHAT_MODEL } from '@/lib/openrouter/models'
 import { buildSystemPrompt, buildUserPrompt, type PromptContext } from '@/lib/openrouter/prompts'
 import { getToolDefinitions } from '@/lib/tools/registry'
 import { registerSearchTool } from '@/lib/tools/searchTool'
 import { registerPythonTool } from '@/lib/tools/pythonTool'
 import { createSSEStream } from '@/lib/sse'
+import { readAiConfig, withAiConfig, resolveSearchModel } from '@/lib/ai/config'
 import { handleToolLoop } from '@/lib/agent/toolLoop'
 
 // Register tools on module load
 registerSearchTool()
 registerPythonTool()
 
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
-}
+// Was an inline copy of the CORS headers, which meant the bring-your-own-key
+// headers had to be remembered in three places. One definition now.
+export { OPTIONS } from '@/lib/cors'
 
 interface CSVDataForRequest {
   name: string
@@ -34,6 +30,10 @@ interface CSVDataForRequest {
 }
 
 export async function POST(request: Request) {
+  return withAiConfig(readAiConfig(request), () => handlePost(request))
+}
+
+async function handlePost(request: Request) {
   try {
     const { query, context, history, model, articleContent, tools, csvData, continueMessages } =
       await request.json()
@@ -92,12 +92,19 @@ export async function POST(request: Request) {
     // Resolve tool definitions (if any enabled)
     const toolDefs = enabledTools.length > 0 ? getToolDefinitions(enabledTools) : undefined
 
-    // Search-only via Perplexity (no tool-calling, returns citations natively)
+    // Search-only: skip tool-calling and query a search model directly, since
+    // it browses and returns citations natively.
+    //
+    // Gated on a search model actually existing. This path bypasses the tool
+    // registry, so the withholding done in getToolDefinitions does not cover
+    // it; without this check a provider with no search model would be sent a
+    // model id it does not serve.
+    const searchModel = resolveSearchModel()
     const isSearchOnly = enabledTools.length === 1 && enabledTools[0] === 'web_search'
-    if (isSearchOnly && !parsedCsvData.length) {
+    if (isSearchOnly && searchModel && !parsedCsvData.length) {
       return createSSEStream(async (emit) => {
         const response = await createCompletion({
-          model: SEARCH_MODEL,
+          model: searchModel,
           messages,
           temperature: 0.4,
           max_tokens: 2048,

@@ -27,7 +27,6 @@ export function ClaimPopover({
   claim,
   children,
   onInvestigate,
-  verdict,
 }: ClaimPopoverProps) {
   const [open, setOpen] = useState(false)
   const [dismissDialogOpen, setDismissDialogOpen] = useState(false)
@@ -86,7 +85,6 @@ export function ClaimPopover({
       <DismissClaimDialog
         open={dismissDialogOpen}
         onOpenChange={setDismissDialogOpen}
-        claimId={claim.id}
         claimText={claim.text}
         onConfirm={() => {
           setDismissDialogOpen(false)

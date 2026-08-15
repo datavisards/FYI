@@ -1,5 +1,6 @@
 import { type NextRequest } from 'next/server'
 import { createCompletion } from '@/lib/openrouter/client'
+import { readAiConfig, withAiConfig } from '@/lib/ai/config'
 import { generateChart } from '@/lib/openrouter/chartGenerator'
 import { DEFAULT_MODELS } from '@/lib/openrouter/models'
 import { createSSEStream } from '@/lib/sse'
@@ -69,6 +70,10 @@ function formatDatasetSample(ds: Dataset): string {
 }
 
 export async function POST(req: NextRequest) {
+  return withAiConfig(readAiConfig(req), () => handlePost(req))
+}
+
+async function handlePost(req: NextRequest) {
   const body = await req.json()
   const { claim, article, datasets } = body as {
     claim: { id: string; text: string; data_fact_hint?: string }
@@ -371,13 +376,5 @@ Provide your verdict:`,
   )
 }
 
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
-}
+// Was an inline copy of the CORS headers. See src/lib/cors.ts.
+export { OPTIONS } from '@/lib/cors'

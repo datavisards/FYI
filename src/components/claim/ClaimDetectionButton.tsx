@@ -1,7 +1,11 @@
 'use client'
 
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
+import { openApiSettings } from '@/components/settings/ApiSettingsDialog'
 import { useClaimStore } from '@/stores/claimStore'
+import { NO_KEY_REASON, useHasApiKey } from '@/stores/settingsStore'
 import { apiFetch } from '@/lib/apiClient'
 import { eventLogger } from '@/lib/tracking/eventLogger'
 import { Loader2, Sparkles, RotateCw } from 'lucide-react'
@@ -19,7 +23,6 @@ interface ClaimDetectionButtonProps {
 
 export function ClaimDetectionButton({
   articleContent,
-  existingClaims = [],
   onClaimsDetected,
   size = 'default',
   variant = 'prominent',
@@ -30,9 +33,17 @@ export function ClaimDetectionButton({
   const setClaimDetectionComplete = useClaimStore((state) => state.setClaimDetectionComplete)
   const setClaimDetectionLoading = useClaimStore((state) => state.setClaimDetectionLoading)
   const setDetectedClaimsStore = useClaimStore((state) => state.setDetectedClaims)
+  const hasKey = useHasApiKey()
 
   const handleDetectClaims = async () => {
     if (!articleContent || isClaimDetectionLoading) return
+    if (!hasKey) {
+      toast.error(NO_KEY_REASON, {
+        description: 'FYI calls your own provider, so it needs a key before it can read the article.',
+        action: { label: 'Add key', onClick: openApiSettings },
+      })
+      return
+    }
 
     const isRerun = isClaimDetectionComplete
     if (isRerun) {
@@ -90,13 +101,13 @@ export function ClaimDetectionButton({
         onClaimsDetected(bodyClaims)
       }
     } catch (error) {
+      const message = (error as Error).message
       console.error('Claim detection error:', error)
-      eventLogger.log({ type: 'claim_ai_detection_failed', error: (error as Error).message })
-      setDetectedClaimsStore(existingClaims)
-      setClaimDetectionComplete(true)
-      if (onClaimsDetected) {
-        onClaimsDetected(existingClaims)
-      }
+      eventLogger.log({ type: 'claim_ai_detection_failed', error: message })
+      toast.error('Could not detect claims', {
+        description: message,
+        action: { label: 'API key', onClick: openApiSettings },
+      })
     } finally {
       setClaimDetectionLoading(false)
     }
@@ -108,10 +119,10 @@ export function ClaimDetectionButton({
     ? 'ghost'
     : variant === 'inline' ? 'outline' : 'default'
 
-  return (
+  const button = (
     <Button
       onClick={handleDetectClaims}
-      disabled={isClaimDetectionLoading}
+      disabled={isClaimDetectionLoading || !hasKey}
       size={size}
       variant={buttonVariant}
       className={cn(
@@ -139,4 +150,15 @@ export function ClaimDetectionButton({
       )}
     </Button>
   )
+
+  /* A disabled button takes no pointer events, so the title needs a wrapper. */
+  if (!hasKey) {
+    return (
+      <span title={NO_KEY_REASON} className="inline-flex shrink-0">
+        {button}
+      </span>
+    )
+  }
+
+  return button
 }

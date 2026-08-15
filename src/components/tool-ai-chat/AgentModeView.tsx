@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useDataStore } from '@/stores/dataStore'
+import { NO_KEY_REASON, useHasApiKey } from '@/stores/settingsStore'
 import { apiFetch } from '@/lib/apiClient'
 import { AgentStepCard } from './AgentStepCard'
 import { MarkdownContent } from './ResponseDisplay'
@@ -23,6 +24,7 @@ interface AgentStep {
 
 export function AgentModeView() {
   const pageTableData = useDataStore((s) => s.pageTableData)
+  const hasApiKey = useHasApiKey()
   const [input, setInput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
@@ -228,7 +230,12 @@ export function AgentModeView() {
               }
             }}
           />
-          <Button type="submit" disabled={!input.trim() || isRunning} className="shrink-0 self-end gap-1">
+          <Button
+            type="submit"
+            disabled={!input.trim() || isRunning || !hasApiKey}
+            title={hasApiKey ? undefined : NO_KEY_REASON}
+            className="shrink-0 self-end gap-1"
+          >
             <Sparkles className="h-3.5 w-3.5" />
             Research
           </Button>

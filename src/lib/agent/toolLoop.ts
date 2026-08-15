@@ -18,7 +18,7 @@ export function handleToolLoop(
 
   return createSSEStream(
     async (emit) => {
-      let currentMessages = [...initialMessages]
+      const currentMessages = [...initialMessages]
       let rounds = 0
       const collectedSources: string[] = []
       let finalContent = ''

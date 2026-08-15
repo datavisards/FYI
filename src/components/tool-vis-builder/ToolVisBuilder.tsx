@@ -29,15 +29,11 @@ interface ToolVisBuilderProps {
    */
   mode?: 'sandbox' | 'panel'
   /** Width in px for the Field List column (default: 180) */
-  fieldListWidth?: number
   /** Show text labels next to toolbar icons (default: true) */
-  showToolbarText?: boolean
 }
 
 export function ToolVisBuilder({
   mode = 'panel',
-  fieldListWidth: _fieldListWidth = 180,
-  showToolbarText: _showToolbarText = true,
 }: ToolVisBuilderProps) {
   const activeClaim = useExplorationStore((s) => s.activeClaim)
   const pageTableData = useDataStore((s) => s.pageTableData)

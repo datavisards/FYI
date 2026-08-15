@@ -1,11 +1,14 @@
+export { OPTIONS } from '@/lib/cors'
+
 import { NextResponse } from 'next/server'
 import { createCompletion } from '@/lib/openrouter/client'
+import { readAiConfig, withAiConfig } from '@/lib/ai/config'
 import { CHAT_MODEL } from '@/lib/openrouter/models'
 
 const SYSTEM_PROMPT = `You are a Python code fixer. The user ran Python code in a browser-based Pyodide environment and it failed.
 
 Fix the code so it runs correctly. Key rules:
-- The available DataFrames are PRE-LOADED as snake_case variables (e.g. "CO2 Emissions Data" → co2_emissions_data). Do NOT use pd.read_csv() — the data is already in memory.
+- The available DataFrames are PRE-LOADED as snake_case variables (e.g. "CO2 Emissions Data" â†’ co2_emissions_data). Do NOT use pd.read_csv() â€” the data is already in memory.
 - Available libraries: pandas (pd), numpy (np), and standard Python.
 - Use print() for output.
 
@@ -18,6 +21,10 @@ interface FixRequest {
 }
 
 export async function POST(request: Request) {
+  return withAiConfig(readAiConfig(request), () => handlePost(request))
+}
+
+async function handlePost(request: Request) {
   try {
     const { code, error, datasetInfo } = (await request.json()) as FixRequest
 

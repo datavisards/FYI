@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { useChatStore, type CsvRowRef, type ChatMessageSource, type ChatMessageChart } from '@/stores/chatStore'
+import { useChatStore, type ChatMessageSource, type ChatMessageChart } from '@/stores/chatStore'
 import { useExplorationStore } from '@/stores/explorationStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useArticleStore } from '@/stores/articleStore'
@@ -13,6 +13,7 @@ import { CodeBlock } from './CodeBlock'
 import { MarkdownContent } from './ResponseDisplay'
 import { SourcesList } from './SourcesList'
 import { cn } from '@/lib/utils'
+import { NO_KEY_REASON, useHasApiKey } from '@/stores/settingsStore'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { VegaChart } from './VegaChart'
@@ -21,8 +22,6 @@ import { Bot, User, Table2, FileText, Globe, BarChart3, Paperclip, CheckCircle2,
 interface ChatPanelProps {
   /** Conversation ID to use. If null, auto-creates on first message. */
   conversationId?: string | null
-  showSearchToggle?: boolean
-  showToolToggles?: boolean
 }
 
 const MAX_PYTHON_CONTINUATION_DEPTH = 3
@@ -179,8 +178,6 @@ function StreamingResponseDisplay({ content, allCsvData }: { content: string; al
 
 export function ChatPanel({
   conversationId,
-  showSearchToggle = true,
-  showToolToggles = false,
 }: ChatPanelProps) {
   const conv = useChatStore((s) =>
     conversationId ? s.conversations.find((c) => c.id === conversationId) : null
@@ -198,7 +195,6 @@ export function ChatPanel({
     : activeClaim
   const pageTableData = useDataStore((s) => s.pageTableData)
 
-  // Use datasets already loaded in the exploration store (includes candy dataset from study/page.tsx)
   const allCsvData = useMemo(() => {
     if (!pageTableData || pageTableData.length === 0) return []
       return pageTableData.map((d) => ({
@@ -208,6 +204,7 @@ export function ChatPanel({
     }))
   }, [pageTableData])
 
+  const hasApiKey = useHasApiKey()
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [toolActivity, setToolActivity] = useState<{ name: string; status: 'calling' | 'done' }[]>([])
@@ -930,7 +927,10 @@ export function ChatPanel({
       {/* Input */}
       <ChatInput
         onSubmit={handleSubmit}
-        disabled={isLoading}
+        // Gated on the key as well as on the in-flight request: chat calls the
+        // visitor's own provider, and the deployment has no key to fall back on.
+        disabled={isLoading || !hasApiKey}
+        placeholder={hasApiKey ? undefined : NO_KEY_REASON}
         showSearchToggle={true}
         searchEnabled={searchEnabled}
         onSearchToggle={(enabled) => {

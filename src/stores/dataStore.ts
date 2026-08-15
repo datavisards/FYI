@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from './safeStorage'
-import { apiFetch } from '@/lib/apiClient'
 import type { CSVData } from '@/lib/data/csvFetcher'
 import { fetchOWIDData, fetchCSVFromURL, parseCSV } from '@/lib/data/csvFetcher'
 

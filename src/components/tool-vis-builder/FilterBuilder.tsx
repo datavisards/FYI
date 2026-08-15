@@ -15,8 +15,6 @@ export interface FilterBuilderProps {
   filters: BuilderFilter[]
   inferredFields: InferredField[]
   fieldStats: Record<string, FieldStats>
-  onAdd: () => void
-  onUpdate: (id: string, patch: Partial<BuilderFilter>) => void
   onRemove: (id: string) => void
   onClear: () => void
   onEdit: (id: string) => void
@@ -27,8 +25,6 @@ export function FilterBuilder({
   filters,
   inferredFields,
   fieldStats,
-  onAdd,
-  onUpdate,
   onRemove,
   onClear,
   onEdit,

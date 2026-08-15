@@ -48,7 +48,6 @@ export function VizBuilder({ dataset, onRequestDataset }: VizBuilderProps) {
     addTabForDataset,
     closeTab,
     setActiveTab,
-    renameTab,
     getActive,
     syncActiveDataset,
     setDatasetName,
@@ -421,8 +420,6 @@ export function VizBuilder({ dataset, onRequestDataset }: VizBuilderProps) {
                 filters={builder.filters ?? []}
                 inferredFields={inferredFields}
                 fieldStats={fieldStats as Record<string, FieldStats>}
-                onAdd={() => handleAddFilterAndEdit()}
-                onUpdate={updateFilter}
                 onRemove={removeFilter}
                 onClear={clearFilters}
                 onEdit={handleOpenFilterForId}

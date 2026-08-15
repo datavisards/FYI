@@ -201,8 +201,6 @@ export function ChatLayout() {
       <div className="flex-1 min-h-0">
         <ChatPanel
           conversationId={activeId}
-          showSearchToggle
-          showToolToggles
         />
       </div>
     </div>
