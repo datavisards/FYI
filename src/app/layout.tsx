@@ -15,8 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
-/* Same origin as the API; src/lib/apiClient.ts carries the same host. */
-const SITE_URL = 'https://fyi.datavisards-hkust.workers.dev'
+const SITE_URL = 'https://tryfyi.app'
 
 const TITLE = 'Fact-Check Your Information'
 const DESCRIPTION =

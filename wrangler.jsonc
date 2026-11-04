@@ -4,7 +4,10 @@
 	"name": "fyi",
 	// Pinned because this login can see more than one account, and wrangler
 	// refuses to guess. Not a secret: it appears in every dashboard URL.
-	"account_id": "9b158525fc448767160f88dad2de1e5e",
+	"account_id": "1bedf22d452c750972ad32167c67f815",
+	"routes": [{ "pattern": "tryfyi.app", "custom_domain": true }],
+	// Explicit: wrangler turns workers.dev off by default once routes are set.
+	"workers_dev": true,
 	"compatibility_date": "2026-07-01",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 	"assets": {
