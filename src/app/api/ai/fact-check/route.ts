@@ -17,38 +17,20 @@ interface ExecutionResult {
   comparison_detail: string
 }
 
-/** Execute LLM-generated code against a dataset with a timeout */
-async function safeExecute(
-  code: string,
-  dataset: { headers: string[]; rows: string[][] }
-): Promise<{ result: ExecutionResult; error?: string }> {
-  // Strip markdown fences if present
-  let clean = code.trim()
-  if (clean.startsWith('```')) {
-    clean = clean.replace(/```(?:javascript|js)?\n?/g, '').replace(/```\n?/g, '')
-  }
-
-  const baseFields = {
-    claimed_value: 'unknown',
-    fact_type: 'unknown',
-    matched_rows: 0,
-    total_rows: dataset.rows.length,
-    comparison_detail: '',
-  }
-
-  try {
-    const fn = new Function('dataset', clean)
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Execution timed out (5s)')), 5000)
-    )
-    const result = await Promise.race([fn(dataset), timeout])
-    return { result: { actual_value: 'unknown', ...baseFields, ...result } }
-  } catch (err) {
-    const message = (err as Error).message ?? 'Unknown execution error'
-    return {
-      result: { actual_value: 'error', ...baseFields, comparison_detail: message },
-      error: message,
-    }
+/** Execution results come back from the browser, so only their expected shape is kept. */
+function readExecutionResult(raw: unknown, totalRows: number): ExecutionResult {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const text = (v: unknown, fallback: string) =>
+    v === undefined || v === null ? fallback : String(v).slice(0, 2000)
+  const count = (v: unknown, fallback: number) =>
+    typeof v === 'number' && Number.isFinite(v) ? v : fallback
+  return {
+    claimed_value: text(r.claimed_value, 'unknown'),
+    actual_value: text(r.actual_value, 'unknown'),
+    fact_type: text(r.fact_type, 'unknown'),
+    matched_rows: count(r.matched_rows, 0),
+    total_rows: count(r.total_rows, totalRows),
+    comparison_detail: text(r.comparison_detail, ''),
   }
 }
 
@@ -75,10 +57,16 @@ export async function POST(req: NextRequest) {
 
 async function handlePost(req: NextRequest) {
   const body = await req.json()
-  const { claim, article, datasets } = body as {
+  const { claim, article, datasets, phase } = body as {
     claim: { id: string; text: string; data_fact_hint?: string }
     article: { title: string; content: string }
     datasets: Dataset[]
+    /**
+     * Workers cannot run generated code, so a check takes two requests: 'generate'
+     * returns the code, the browser runs it (see runGeneratedCode), and 'judge'
+     * takes its result through the chart and the verdict.
+     */
+    phase: 'generate' | 'judge'
   }
 
   const emitStep = (
@@ -91,10 +79,35 @@ async function handlePost(req: NextRequest) {
 
   return createSSEStream(
     async (emit) => {
+      const dsName = datasets[0]?.name ?? null
+      const ds = datasets.find((d) => d.name === dsName) ?? datasets[0] ?? null
+
+      let enrichedClaim: string = claim.text
+      let generatedCode = ''
+      let generateError: string | undefined
+      let executionResult = readExecutionResult(null, ds?.rows.length ?? 0)
+
+      if (phase === 'judge') {
+        enrichedClaim = String(body.enrichedClaim ?? claim.text).slice(0, 2000)
+        generatedCode = String(body.generatedCode ?? '').slice(0, 20000)
+        executionResult = readExecutionResult(body.executionResult, ds?.rows.length ?? 0)
+        if (body.executionError) {
+          generateError = String(body.executionError).slice(0, 2000)
+          executionResult = {
+            ...executionResult,
+            actual_value: 'error',
+            comparison_detail: generateError,
+          }
+        }
+        emitStep(emit, 2, 'generate', generateError ? 'error' : 'done', {
+          code: generatedCode,
+          execution_result: executionResult,
+          ...(generateError ? { error: generateError } : {}),
+        })
+      } else {
       // ── STEP 1: RESOLVE ──────────────────────────────────────────────────
       emitStep(emit, 1, 'resolve', 'running')
 
-      let enrichedClaim: string
       try {
         const resolveRes = await createCompletion({
           model: PIPELINE_MODEL,
@@ -127,20 +140,6 @@ Rewrite the claim to be self-contained:`,
 
       // ── STEP 2: GENERATE & EXECUTE (Binder core) ────────────────────────
       emitStep(emit, 2, 'generate', 'running')
-
-      const dsName = datasets[0]?.name ?? null
-      const ds = datasets.find((d) => d.name === dsName) ?? datasets[0] ?? null
-
-      let executionResult: ExecutionResult = {
-        claimed_value: 'unknown',
-        actual_value: 'unknown',
-        fact_type: 'unknown',
-        matched_rows: 0,
-        total_rows: ds?.rows.length ?? 0,
-        comparison_detail: '',
-      }
-      let generatedCode = ''
-      let generateError: string | undefined
 
       if (ds) {
         const sampleTable = formatDatasetSample(ds)
@@ -188,7 +187,7 @@ Rules:
 - Use case-insensitive matching for string comparisons (e.g. \`.toLowerCase().includes()\`).
 - Handle edge cases: column not found, no matching rows, non-numeric values.
 - Do NOT use require/import/fetch/process or any Node.js APIs.
-- Do NOT define a function — write the function BODY directly (it will be wrapped in \`new Function('dataset', yourCode)\`).
+- Do NOT define a function — write the function BODY directly (it runs as the body of a function taking \`dataset\`).
 - The last statement must be a \`return { ... }\` with the object above.
 - Keep the code concise and correct. Prefer simple loops over complex functional chains.`,
               },
@@ -212,13 +211,6 @@ Write the function body to verify this claim:`,
 
           generatedCode =
             generateRes.choices[0]?.message?.content?.trim() ?? ''
-
-          const { result, error } = await safeExecute(generatedCode, {
-            headers: ds.headers,
-            rows: ds.rows,
-          })
-          executionResult = result
-          generateError = error
         } catch (llmErr) {
           generateError = (llmErr as Error)?.message ?? 'Code generation failed'
         }
@@ -226,11 +218,14 @@ Write the function body to verify this claim:`,
         generateError = 'No dataset available'
       }
 
-      emitStep(emit, 2, 'generate', generateError ? 'error' : 'done', {
+      // Still running: the browser runs this code, then sends the result to 'judge'.
+      emitStep(emit, 2, 'generate', 'running', {
         code: generatedCode,
-        execution_result: executionResult,
+        enriched_claim: enrichedClaim,
         ...(generateError ? { error: generateError } : {}),
       })
+      return
+      }
 
       // ── STEP 3: VISUALIZE ────────────────────────────────────────────────
       emitStep(emit, 3, 'visualize', 'running')

@@ -6,6 +6,7 @@ import { useDataStore } from '@/stores/dataStore'
 import { useArticleStore } from '@/stores/articleStore'
 import { useChatStore, type AutoCheckResult, type AutoCheckStepEvent } from '@/stores/chatStore'
 import { apiFetch } from '@/lib/apiClient'
+import { runGeneratedCode } from '@/lib/factChecking/runGeneratedCode'
 import { NO_KEY_REASON, useHasApiKey } from '@/stores/settingsStore'
 import { eventLogger } from '@/lib/tracking/eventLogger'
 import { AutoCheckResultCard, AutoCheckProgressCard } from './AutoCheckResultCard'
@@ -13,6 +14,17 @@ import { Zap, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { VERDICT_BADGE } from '@/components/claim/constants'
+
+/** The fields of a final step 4 event that become the visible result. */
+type AutoCheckEventData = Pick<
+  AutoCheckResult,
+  'verdict' | 'confidence' | 'reasoning'
+> & {
+  vega_lite_spec?: AutoCheckResult['vegaLiteSpec']
+  actual_value?: AutoCheckResult['actualValue']
+  claimed_value?: AutoCheckResult['claimedValue']
+  fact_type?: AutoCheckResult['factType']
+}
 
 export function AutoCheckPanel() {
   const activeClaim = useExplorationStore((s) => s.activeClaim)
@@ -41,7 +53,6 @@ export function AutoCheckPanel() {
   }, [pageTableData])
 
   const hasDatasets = allCsvData.length > 0
-  // No key on the deployment, so a visitor's own is the only one there is.
   const hasKey = useHasApiKey()
 
   // Restore cached result or reset when active claim changes
@@ -83,94 +94,106 @@ export function AutoCheckPanel() {
     try {
       const currentArticle = useArticleStore.getState().getCurrentArticle()
 
-      const res = await apiFetch('/api/ai/fact-check', {
-        method: 'POST',
-        body: JSON.stringify({
-          claim: {
-            id: activeClaim.id,
-            text: activeClaim.text,
-            data_fact_hint: (activeClaim as unknown as Record<string, unknown>).data_fact_hint,
-          },
-          article: {
-            title: currentArticle?.title ?? '',
-            content: currentArticle?.content?.slice(0, 1000) ?? '',
-          },
-          datasets: allCsvData,
-        }),
-      })
+      const request = {
+        claim: {
+          id: activeClaim.id,
+          text: activeClaim.text,
+          data_fact_hint: (activeClaim as unknown as Record<string, unknown>).data_fact_hint,
+        },
+        article: {
+          title: currentArticle?.title ?? '',
+          content: currentArticle?.content?.slice(0, 1000) ?? '',
+        },
+        datasets: allCsvData,
+      }
 
-      if (!res.ok || !res.body) throw new Error(res.statusText)
+      const applyEvent = (event: {
+        step: number
+        name: string
+        status: AutoCheckStepEvent['status']
+        data: Record<string, unknown> & AutoCheckEventData
+      }) => {
+        liveResult.steps = [
+          ...liveResult.steps.filter((s) => s.step !== event.step),
+          { step: event.step, name: event.name, status: event.status, data: event.data },
+        ]
+        if (event.step === 4 && event.status === 'done') {
+          liveResult.verdict = event.data.verdict
+          liveResult.confidence = event.data.confidence
+          liveResult.reasoning = event.data.reasoning
+          liveResult.vegaLiteSpec = event.data.vega_lite_spec
+          liveResult.actualValue = event.data.actual_value
+          liveResult.claimedValue = event.data.claimed_value
+          liveResult.factType = event.data.fact_type
+        }
+        setProgress([...liveResult.steps])
+      }
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let sseBuffer = ''
+      /** Sends one phase of the check, applying its progress, and returns its last step 2 data. */
+      const runPhase = async (phaseBody: Record<string, unknown>) => {
+        const res = await apiFetch('/api/ai/fact-check', {
+          method: 'POST',
+          body: JSON.stringify({ ...request, ...phaseBody }),
+        })
+        if (!res.ok || !res.body) throw new Error(res.statusText)
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        sseBuffer += decoder.decode(value, { stream: true })
-        const lines = sseBuffer.split('\n')
-        sseBuffer = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let sseBuffer = ''
+
+        const handleLine = (line: string) => {
+          if (!line.startsWith('data: ')) return
           const payload = line.slice(6)
-          if (payload === '[DONE]') continue
+          if (payload === '[DONE]') return
+          let event
           try {
-            const event = JSON.parse(payload)
-            if (event.error) throw new Error(event.error)
-
-            const stepEvent: AutoCheckStepEvent = {
-              step: event.step,
-              name: event.name,
-              status: event.status,
-              data: event.data,
-            }
-
-            liveResult.steps = [
-              ...liveResult.steps.filter((s) => s.step !== event.step),
-              stepEvent,
-            ]
-
-            if (event.step === 4 && event.status === 'done') {
-              liveResult.verdict = event.data.verdict
-              liveResult.confidence = event.data.confidence
-              liveResult.reasoning = event.data.reasoning
-              liveResult.vegaLiteSpec = event.data.vega_lite_spec
-              liveResult.actualValue = event.data.actual_value
-              liveResult.claimedValue = event.data.claimed_value
-              liveResult.factType = event.data.fact_type
-            }
-
-            setProgress([...liveResult.steps])
-          } catch (parseErr) {
-            const msg = (parseErr as Error).message
-            if (msg && !msg.includes('JSON')) throw parseErr
+            event = JSON.parse(payload)
+          } catch {
+            return // A partial or malformed event.
           }
+          if (event.error) throw new Error(event.error)
+          applyEvent(event)
+        }
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          sseBuffer += decoder.decode(value, { stream: true })
+          const lines = sseBuffer.split('\n')
+          sseBuffer = lines.pop() ?? ''
+          lines.forEach(handleLine)
+        }
+        handleLine(sseBuffer.trim())
+
+        return liveResult.steps.find((s) => s.step === 2)?.data as
+          | { code?: string; enriched_claim?: string; error?: string }
+          | undefined
+      }
+
+      const generated = await runPhase({ phase: 'generate' })
+      const generatedCode = generated?.code ?? ''
+
+      let executionResult: unknown
+      let executionError = generated?.error
+      if (!executionError) {
+        try {
+          if (!generatedCode) throw new Error('No verification code was generated.')
+          executionResult = await runGeneratedCode(generatedCode, allCsvData[0])
+          if (!executionResult || typeof executionResult !== 'object') {
+            throw new Error('The verification code did not return a result.')
+          }
+        } catch (err) {
+          executionError = (err as Error).message
         }
       }
-      // Flush remaining buffer
-      if (sseBuffer.trim() && sseBuffer.startsWith('data: ')) {
-        const payload = sseBuffer.slice(6)
-        if (payload !== '[DONE]') {
-          try {
-            const event = JSON.parse(payload)
-            if (event.step === 4 && event.status === 'done') {
-              liveResult.verdict = event.data.verdict
-              liveResult.confidence = event.data.confidence
-              liveResult.reasoning = event.data.reasoning
-              liveResult.vegaLiteSpec = event.data.vega_lite_spec
-              liveResult.actualValue = event.data.actual_value
-              liveResult.claimedValue = event.data.claimed_value
-              liveResult.factType = event.data.fact_type
-            }
-            liveResult.steps = [
-              ...liveResult.steps.filter((s) => s.step !== event.step),
-              { step: event.step, name: event.name, status: event.status, data: event.data },
-            ]
-            setProgress([...liveResult.steps])
-          } catch { /* skip */ }
-        }
-      }
+
+      await runPhase({
+        phase: 'judge',
+        enrichedClaim: generated?.enriched_claim ?? activeClaim.text,
+        generatedCode,
+        executionResult,
+        executionError,
+      })
 
       const finalResult = { ...liveResult }
       setResult(finalResult)
