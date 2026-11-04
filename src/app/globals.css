@@ -128,6 +128,14 @@
     height: 100%;
     overflow: hidden;
   }
+  /*
+   * Denser workspace: scales everything sized in rem, spacing included, and only
+   * on /app. A percentage keeps the visitor's browser font setting in effect.
+   * Literal sizes such as text-[10px] stay as they are, already at the small limit.
+   */
+  html:has([data-viewport-lock]) {
+    font-size: 87.5%;
+  }
 }
 
 /* Excalidraw overrides - prevent Tailwind conflicts */
