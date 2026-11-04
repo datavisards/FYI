@@ -32,7 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { History, Download, RotateCcw, MoreHorizontal } from 'lucide-react'
+import { ArrowLeftRight, History, Download, RotateCcw, MoreHorizontal } from 'lucide-react'
 import { ApiSettingsDialog } from '@/components/settings/ApiSettingsDialog'
 import { downloadAsJSON } from '@/lib/export/sessionExporter'
 import { FyiMark } from '@/components/brand/FyiMark'
@@ -95,6 +95,7 @@ export default function AppPage() {
   const [article, setArticle] = useState<Article | null>(null)
   const [claimsSheetOpen, setClaimsSheetOpen] = useState(false)
   const [pendingUrl, setPendingUrl] = useState<string | null>(null)
+  const [changingArticle, setChangingArticle] = useState(false)
   const [importError, setImportError] = useState<{ message: string; url: string | null } | null>(
     null
   )
@@ -171,6 +172,7 @@ export default function AppPage() {
       setHighlightedClaimId(null)
       setActiveClaim(null)
       setArticle(null)
+      setChangingArticle(false)
       setImportError(null)
       toast.success('Session reset')
     }
@@ -191,16 +193,17 @@ export default function AppPage() {
     toast.success('Session exported')
   }, [])
 
-  /** The session deliberately starts later, when the workspace opens. */
   const activateArticle = useCallback(
     (nextArticle: Article, sampleDataset?: { name: string; path: string }) => {
-      // Fresh state for each article: one article per session
-      clearAll()
+      // One article per session, so replacing an article starts over. The workspace
+      // is usable before the first article, and what was added then is kept.
+      if (useArticleStore.getState().getCurrentArticle()) clearAll()
       setSelectedClaim(null)
       setHighlightedClaimId(null)
       setActiveClaim(null)
       setArticle(nextArticle)
       setArticles([nextArticle])
+      setChangingArticle(false)
       setImportError(null)
       startSession(nextArticle.$id)
 
@@ -212,8 +215,10 @@ export default function AppPage() {
           })
           .then((raw) => {
             const { headers, rows } = parseCSV(raw)
-            useDataStore.getState().setPageTableData([{ name: sampleDataset.name, headers, rows }])
-            useDataStore.getState().setSelectedVisDataset(sampleDataset.name)
+            const { pageTableData, setPageTableData, setSelectedVisDataset } = useDataStore.getState()
+            const uploaded = (pageTableData ?? []).filter((d) => d.name !== sampleDataset.name)
+            setPageTableData([...uploaded, { name: sampleDataset.name, headers, rows }])
+            setSelectedVisDataset(sampleDataset.name)
           })
           .catch((err: Error) => {
             toast.error(err.message || `Could not load ${sampleDataset.name}.`)
@@ -265,15 +270,13 @@ export default function AppPage() {
     [activateArticle]
   )
 
-  if (isLoading || pendingUrl) {
+  if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="space-y-4 text-center">
           <Skeleton className="h-12 w-12 rounded-full mx-auto" />
           <Skeleton className="h-4 w-48" />
-          <p className="text-sm text-muted-foreground">
-            {pendingUrl ? 'Loading the article...' : 'Loading...'}
-          </p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     )
@@ -378,34 +381,57 @@ export default function AppPage() {
         </div>
       </header>
 
-      {!article || importError ? (
-        <div className="flex-1 min-h-0">
-          <ArticleStep
-            samples={SAMPLES}
-            onUseSample={handleUseSample}
-            onUseText={handleUseCustomText}
-            importError={importError}
-            onBack={article ? () => setImportError(null) : undefined}
-          />
-        </div>
-      ) : (
       <div className="flex-1 min-h-0">
         <SplitPane
           left={
             <div className="h-full flex flex-col">
+              {article && !pendingUrl && !importError && !changingArticle && (
+                <div className="flex justify-end border-b px-3 py-1.5 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setChangingArticle(true)}
+                    className="gap-1.5 text-muted-foreground"
+                  >
+                    <ArrowLeftRight className="size-3.5" />
+                    Change article
+                  </Button>
+                </div>
+              )}
               <div className="flex-1 min-h-0">
-                <ArticleViewer article={article} onClaimClick={handleClaimClick} />
+                {pendingUrl ? (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground">Loading the article...</p>
+                  </div>
+                ) : !article || importError || changingArticle ? (
+                  <ArticleStep
+                    samples={SAMPLES}
+                    onUseSample={handleUseSample}
+                    onUseText={handleUseCustomText}
+                    importError={importError}
+                    onBack={
+                      article
+                        ? () => {
+                            setImportError(null)
+                            setChangingArticle(false)
+                          }
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <ArticleViewer article={article} onClaimClick={handleClaimClick} />
+                )}
               </div>
             </div>
           }
           right={
             <div className="h-full flex flex-col min-h-0">
               <ClaimToolbar
-                articleContent={article.title + '\n\n' + article.content}
-                existingClaims={article.claims || []}
+                articleContent={article ? article.title + '\n\n' + article.content : ''}
+                existingClaims={article?.claims || []}
                 onOpenClaimsList={() => setClaimsSheetOpen(true)}
               />
-              <ClaimInvestigationPanel existingClaims={article.claims || []} />
+              <ClaimInvestigationPanel existingClaims={article?.claims || []} />
               <div className="flex-1 min-h-0">
                 <SplitPane
                   direction="horizontal"
@@ -443,7 +469,6 @@ export default function AppPage() {
           maxLeftPercent={50}
         />
       </div>
-      )}
     </div>
   )
 }

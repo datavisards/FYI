@@ -122,7 +122,7 @@ export function ClaimDetectionButton({
   const button = (
     <Button
       onClick={handleDetectClaims}
-      disabled={isClaimDetectionLoading || !hasKey}
+      disabled={isClaimDetectionLoading || !hasKey || !articleContent}
       size={size}
       variant={buttonVariant}
       className={cn(

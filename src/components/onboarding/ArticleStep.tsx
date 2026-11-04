@@ -99,6 +99,12 @@ export function ArticleStep({
       }
     >
       <div className="space-y-3">
+        {onBack && (
+          <p className="text-muted-foreground text-sm">
+            Opening another article starts over: this article&apos;s claims, chats and data will be
+            cleared.
+          </p>
+        )}
         {importError && (
           <div role="alert" className="border-destructive/40 rounded-lg border p-4 text-sm">
             <p className="font-medium">{importError.message}</p>
