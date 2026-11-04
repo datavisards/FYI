@@ -63,10 +63,10 @@ const SAMPLES: SampleArticle[] = [
   {
     id: 'movie-success',
     title: movieSuccessArticle.title,
-    datasetLabel: 'movies-merged, 1,724 rows',
+    datasetLabel: 'movies-dataset, 1,724 rows',
     lengthLabel: 'about 500 words',
     data: movieSuccessArticle,
-    dataset: { name: 'movies-merged', path: '/data/movies-merged.csv' },
+    dataset: { name: 'movies-dataset', path: '/data/movies-dataset.csv' },
   },
 ]
 
@@ -270,6 +270,16 @@ export default function AppPage() {
     [activateArticle]
   )
 
+  const handleUseUrl = useCallback(
+    (url: string) => {
+      setImportError(null)
+      // The article already open: go back to it rather than clearing its progress.
+      if (article?.metadata?.url === url) setChangingArticle(false)
+      else setPendingUrl(url)
+    },
+    [article]
+  )
+
   const handleUseSample = useCallback(
     (sample: SampleArticle) => {
       activateArticle(buildArticleFromData(sample.data), sample.dataset)
@@ -419,6 +429,7 @@ export default function AppPage() {
                     samples={SAMPLES}
                     onUseSample={handleUseSample}
                     onUseText={handleUseCustomText}
+                    onUseUrl={handleUseUrl}
                     importError={importError}
                     onBack={
                       article

@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { AlignLeft, ArrowRight, Table2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { StepShell } from '@/components/onboarding/StepShell'
+import { parseTargetUrl } from '@/lib/article/targetUrl'
 import { cn } from '@/lib/utils'
 
 
@@ -19,6 +21,7 @@ export interface SampleArticle {
   dataset: { name: string; path: string }
 }
 
+const WEB_ADDRESS = 'web-address'
 const PASTE = 'paste'
 
 function Option({
@@ -63,27 +66,36 @@ export function ArticleStep({
   samples,
   onUseSample,
   onUseText,
+  onUseUrl,
   importError,
   onBack,
 }: {
   samples: SampleArticle[]
   onUseSample: (sample: SampleArticle) => void
   onUseText: (text: string) => void
-  /** Why an article linked from another site did not load. */
+  /** Receives an address that has passed parseTargetUrl. */
+  onUseUrl: (url: string) => void
+  /** Why an article from a web address did not load. */
   importError?: { message: string; url: string | null } | null
   /** Returns to the article already open, if there is one. */
   onBack?: () => void
 }) {
-  const [selected, setSelected] = useState<string | null>(samples[0]?.id ?? null)
+  // After a failed load the notice points at the paste box, and this screen has
+  // just remounted, so the address is restored from the error.
+  const [selected, setSelected] = useState<string | null>(importError ? PASTE : WEB_ADDRESS)
+  const [address, setAddress] = useState(importError?.url ?? '')
   const [text, setText] = useState('')
 
+  const target = parseTargetUrl(address)
+  const addressReady = selected === WEB_ADDRESS && target !== null
   const pasteReady = selected === PASTE && text.trim().length > 0
   const sample = samples.find((s) => s.id === selected)
-  const canContinue = Boolean(sample) || pasteReady
+  const canContinue = Boolean(sample) || pasteReady || addressReady
 
   const commit = () => {
     if (sample) return onUseSample(sample)
     if (pasteReady) return onUseText(text.trim())
+    if (addressReady) return onUseUrl(target!)
   }
 
   return (
@@ -99,12 +111,6 @@ export function ArticleStep({
       }
     >
       <div className="space-y-3">
-        {onBack && (
-          <p className="text-muted-foreground text-sm">
-            Opening another article starts over: this article&apos;s claims, chats and data will be
-            cleared.
-          </p>
-        )}
         {importError && (
           <div role="alert" className="border-destructive/40 rounded-lg border p-4 text-sm">
             <p className="font-medium">{importError.message}</p>
@@ -128,6 +134,36 @@ export function ArticleStep({
             </p>
           </div>
         )}
+        <Option selected={selected === WEB_ADDRESS} onSelect={() => setSelected(WEB_ADDRESS)}>
+          <div className="flex items-start gap-3">
+            <Dot selected={selected === WEB_ADDRESS} />
+            <div className="min-w-0 flex-1">
+              <label htmlFor="article-address" className="text-sm leading-snug font-medium">
+                Open from webpage
+              </label>
+              <Input
+                id="article-address"
+                type="url"
+                inputMode="url"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                onFocus={() => setSelected(WEB_ADDRESS)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commit()
+                }}
+                placeholder="https://site.com/article"
+                aria-invalid={address.trim() !== '' && target === null}
+                className="mt-2"
+              />
+              <p className="text-muted-foreground mt-1.5 text-xs">
+                {address.trim() !== '' && target === null
+                  ? 'Enter a public web address, like https://site.com/article.'
+                  : 'Some sites block automatic reading. If so, paste the text instead.'}
+              </p>
+            </div>
+          </div>
+        </Option>
+
         {samples.map((s) => (
           <Option key={s.id} selected={selected === s.id} onSelect={() => setSelected(s.id)}>
             <div className="flex items-start gap-3">
