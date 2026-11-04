@@ -13,7 +13,19 @@
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
-	}
+	},
+	// The shared AI key ends here. The key itself is the FYI_HOSTED_API_KEY secret:
+	// set it with `wrangler secret put`, never in this file. Without it, or after
+	// this date, the website asks visitors for their own key.
+	"vars": { "FYI_HOSTED_KEY_EXPIRES": "2026-12-04T00:00:00Z" },
+	// Per visitor, per AI call. One agent run or fact check can make several calls.
+	"ratelimits": [
+		{
+			"name": "HOSTED_AI_LIMIT",
+			"namespace_id": "1001",
+			"simple": { "limit": 30, "period": 60 }
+		}
+	]
 	// Deliberately omitted from the adapter's template:
 	//
 	// - r2_buckets / WORKER_SELF_REFERENCE: these back OpenNext's incremental
@@ -23,7 +35,6 @@
 	//
 	// Add them back if ISR or next/image is introduced.
 	//
-	// No secrets are needed: callers supply their own AI key per request, and
-	// the deployment holds none. If that ever changes, set them out of band so
-	// they never enter git, and use .dev.vars (gitignored) for `wrangler dev`.
+	// Secrets stay out of git: use `wrangler secret put`, and .dev.vars
+	// (gitignored) for `wrangler dev`.
 }

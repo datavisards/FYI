@@ -1,5 +1,5 @@
 import type { ToolDefinition, ToolCall } from '@/lib/tools/registry'
-import { resolveAiConfig, type AiConfig } from '@/lib/ai/config'
+import { enforceHostedRateLimit, resolveAiConfig, type AiConfig } from '@/lib/ai/config'
 import { SEARCH_MODEL } from '@/lib/openrouter/models'
 
 /** A request already aimed at a search model keeps it, or it stops citing. */
@@ -18,7 +18,12 @@ function redact(message: string, apiKey: string): string {
   return out.replace(/\b(sk|gsk|xai|key)-[A-Za-z0-9_-]{4,}/gi, '[redacted]')
 }
 
-async function errorFrom(response: Response, apiKey: string): Promise<Error> {
+async function errorFrom(response: Response, config: AiConfig): Promise<Error> {
+  const { apiKey } = config
+  // Out of credit or revoked: not something a visitor can fix except with their own key.
+  if (config.hostedClient && [401, 402, 403, 429].includes(response.status)) {
+    return new Error('Free AI access is unavailable right now. Add your own key under API key.')
+  }
   const body = await response.json().catch(() => ({}))
   const raw = body.error?.message || body.message || `API error (${response.status})`
   return new Error(redact(String(raw), apiKey))
@@ -64,6 +69,7 @@ export async function createCompletion(
 ): Promise<OpenRouterResponse> {
   const config = resolveAiConfig()
   const { baseUrl, apiKey } = config
+  await enforceHostedRateLimit(config)
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -79,7 +85,7 @@ export async function createCompletion(
   })
 
   if (!response.ok) {
-    throw await errorFrom(response, apiKey)
+    throw await errorFrom(response, config)
   }
 
   return response.json()
@@ -101,6 +107,7 @@ async function* streamCompletion(
   config: AiConfig
 ): AsyncGenerator<string, void, unknown> {
   const { baseUrl, apiKey } = config
+  await enforceHostedRateLimit(config)
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -116,7 +123,7 @@ async function* streamCompletion(
   })
 
   if (!response.ok) {
-    throw await errorFrom(response, apiKey)
+    throw await errorFrom(response, config)
   }
 
   const reader = response.body?.getReader()

@@ -10,7 +10,7 @@ import { FyiMark } from '@/components/brand/FyiMark'
  * what the extension does; if the data flow changes, so does the date below.
  */
 
-const LAST_UPDATED = '15 August 2026'
+const LAST_UPDATED = '4 November 2026'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | FYI',
@@ -79,7 +79,7 @@ export default function PrivacyPolicyPage() {
           <p>
             The AI features are off until you enter your own API key, under{' '}
             <strong>API key</strong> in the panel menu or on the extension&rsquo;s options page.
-            There is no shared key: nothing is sent to an AI provider until you have chosen one and
+            The extension has no shared key: nothing is sent to an AI provider until you have chosen one and
             supplied credentials for it.
           </p>
         </Section>
@@ -101,7 +101,7 @@ export default function PrivacyPolicyPage() {
           <p>
             The key is used to authenticate that one request against your provider and is then
             discarded. It is not stored, logged, or written to disk on the backend, and the backend
-            keeps no key of its own.
+            uses no key of its own for the extension.
           </p>
           <p>
             Which provider receives your content is your choice. The default is{' '}
@@ -115,6 +115,19 @@ export default function PrivacyPolicyPage() {
             this one, and the usage is billed to your account with them. Do not use the extension on
             pages containing information you are not willing to send to that provider.
           </p>
+        </Section>
+
+        <Section title="Free AI access on the FYI website">
+          <p>
+            This section applies to the website at tryfyi.app, not the extension. Until December 4,
+            2026, the website&rsquo;s AI features work without your own key, using a key we hold on
+            the server and pay for. When you use them this way, the article text, claims, chat
+            messages and uploaded data you use with those features are relayed to{' '}
+            <strong>OpenRouter</strong> under that key, and to <strong>Perplexity Sonar</strong> if
+            you enable Web Search. Your IP address is used to limit how many requests you can make
+            per minute. Do not submit information you are not willing to send to those providers.
+          </p>
+          <p>If you enter your own key on the website, requests use your key and provider instead.</p>
         </Section>
 
         <Section title="What stays on your device">

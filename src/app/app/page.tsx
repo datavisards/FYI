@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { useExplorationStore } from '@/stores/explorationStore'
+import { loadHostedAccess } from '@/stores/settingsStore'
 import { useClaimStore } from '@/stores/claimStore'
 import { useArticleStore } from '@/stores/articleStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -113,6 +114,7 @@ export default function AppPage() {
   useEffect(() => {
     if (initRef.current) return
     initRef.current = true
+    void loadHostedAccess()
 
     const restore = () => {
       const saved = useArticleStore.getState().getCurrentArticle()

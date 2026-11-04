@@ -61,13 +61,36 @@ export const useSettingsStore = create<SettingsState>()(
 )
 
 /**
- * Whether an AI call can be made at all. Components gate their AI actions on
- * this, since the deployment has no key of its own to fall back to.
+ * When the website's shared key ends, or null if it offers none. Not persisted:
+ * the server decides on each visit, so the key setup returns by itself once this
+ * passes. Stays null in the extension, which never asks.
+ */
+export const useHostedAccessStore = create<{ expiresAt: string | null }>()(() => ({
+  expiresAt: null,
+}))
+
+export async function loadHostedAccess(): Promise<void> {
+  try {
+    const res = await fetch('/api/ai/access')
+    const { expiresAt } = await res.json()
+    useHostedAccessStore.setState({ expiresAt: expiresAt ?? null })
+  } catch {
+    useHostedAccessStore.setState({ expiresAt: null })
+  }
+}
+
+/**
+ * Whether an AI call can be made at all: the user's own key, or the shared one.
+ * Components gate their AI actions on this.
  *
  * A selector over apiKey, not the hasKey() action, so it re-renders when the
  * key is entered or cleared.
  */
-export const useHasApiKey = () => useSettingsStore((s) => s.apiKey.trim().length > 0)
+export const useHasApiKey = () => {
+  const ownKey = useSettingsStore((s) => s.apiKey.trim().length > 0)
+  const hosted = useHostedAccessStore((s) => s.expiresAt !== null)
+  return ownKey || hosted
+}
 
 /** Shared by every gated control, so they all say the same thing. */
 export const NO_KEY_REASON = 'Add an API key to use the AI features'

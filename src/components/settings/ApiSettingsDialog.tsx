@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useHostedAccessStore, useSettingsStore } from '@/stores/settingsStore'
 import { ApiKeyForm } from '@/components/settings/ApiKeyForm'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +30,7 @@ export const openApiSettings = () => useApiDialogState.getState().setOpen(true)
 
 export function ApiSettingsDialog({ className }: { className?: string }) {
   const saved = useSettingsStore()
+  const hostedUntil = useHostedAccessStore((s) => s.expiresAt)
   const open = useApiDialogState((s) => s.open)
   const setOpen = useApiDialogState((s) => s.setOpen)
 
@@ -56,7 +57,21 @@ export function ApiSettingsDialog({ className }: { className?: string }) {
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Use your own API key</DialogTitle>
-          <DialogDescription>Stored in this browser, never on our server.</DialogDescription>
+          <DialogDescription>
+            {hostedUntil && (
+              <>
+                AI features are free on this site until{' '}
+                {new Date(hostedUntil).toLocaleDateString(undefined, {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                  timeZone: 'UTC',
+                })}
+                , so a key is optional.{' '}
+              </>
+            )}
+            Your key is stored in this browser, never on our server.
+          </DialogDescription>
         </DialogHeader>
 
         <ApiKeyForm seed={seed}>
@@ -71,7 +86,7 @@ export function ApiSettingsDialog({ className }: { className?: string }) {
                       size="sm"
                       onClick={() => {
                         clear()
-                        toast.success('Key cleared. The AI features are off.')
+                        toast.success(hostedUntil ? 'Key cleared.' : 'Key cleared. The AI features are off.')
                       }}
                     >
                       Clear

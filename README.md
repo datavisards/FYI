@@ -21,9 +21,11 @@ npm install
 
 ### API key
 
-FYI has no key of its own. The AI features stay off until you supply one, which
-you enter in the app under **API key**. It is stored in your browser and sent
-with each request; the server never keeps it.
+Until December 4, 2026, the AI features work on [tryfyi.app](https://tryfyi.app)
+without a key, using a shared key held on the server. After that, and always in the
+extension or on your own deployment, they stay off until you supply a key, which you
+enter under **API key**. It is stored in your browser and sent with each request; the
+server never keeps it.
 
 OpenRouter is the default, and any OpenAI-compatible endpoint works.
 
