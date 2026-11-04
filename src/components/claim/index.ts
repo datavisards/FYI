@@ -6,7 +6,7 @@ export { ClaimsListPanel } from './ClaimsListPanel'
 export { TextSelectionToolbar } from './TextSelectionToolbar'
 export { ClaimVerdictForm } from './ClaimVerdictForm'
 export { ClaimInvestigationPanel } from './ClaimInvestigationPanel'
-export { ClaimToolbar } from './ClaimToolbar'
+export { ArticleClaimDetection, ClaimToolbar } from './ClaimToolbar'
 export { DismissClaimDialog } from './DismissClaimDialog'
 
 // Shared constants and utilities

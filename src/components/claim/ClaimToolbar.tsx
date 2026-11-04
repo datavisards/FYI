@@ -11,6 +11,39 @@ import { FileText } from 'lucide-react'
 import type { Claim } from '@/types'
 
 /**
+ * The detect button, styled by whether the article has any claims yet.
+ */
+export function ArticleClaimDetection({
+  articleContent,
+  existingClaims = [],
+}: {
+  articleContent: string
+  existingClaims?: Claim[]
+}) {
+  const totalClaims = useOrderedClaims(existingClaims).length
+
+  return (
+    <ClaimDetectionButton
+      articleContent={articleContent}
+      existingClaims={existingClaims}
+      size="sm"
+      variant={totalClaims === 0 ? 'prominent' : 'inline'}
+    />
+  )
+}
+
+function useOrderedClaims(existingClaims: Claim[]) {
+  const detectedClaims = useClaimStore((s) => s.detectedClaims)
+  const manualClaims = useClaimStore((s) => s.manualClaims)
+  const dismissedClaimIds = useClaimStore((s) => s.dismissedClaimIds)
+
+  return useMemo(
+    () => getOrderedClaims(existingClaims, detectedClaims, manualClaims, dismissedClaimIds),
+    [existingClaims, detectedClaims, manualClaims, dismissedClaimIds]
+  )
+}
+
+/**
  * Article-level toolbar: claim detection, progress, and claims list access.
  * Sits above the ClaimInvestigationPanel to separate article-level actions
  * from claim-level investigation.
@@ -21,20 +54,14 @@ export function ClaimToolbar({
   onOpenClaimsList,
   className,
 }: {
-  articleContent: string
+  /** Omit when the detect button is placed elsewhere with ArticleClaimDetection. */
+  articleContent?: string
   existingClaims?: Claim[]
   onOpenClaimsList?: () => void
   className?: string
 }) {
-  const detectedClaims = useClaimStore((s) => s.detectedClaims)
-  const manualClaims = useClaimStore((s) => s.manualClaims)
-  const dismissedClaimIds = useClaimStore((s) => s.dismissedClaimIds)
   const claimVerdicts = useClaimStore((s) => s.claimVerdicts)
-
-  const allClaimsOrdered = useMemo(
-    () => getOrderedClaims(existingClaims, detectedClaims, manualClaims, dismissedClaimIds),
-    [existingClaims, detectedClaims, manualClaims, dismissedClaimIds]
-  )
+  const allClaimsOrdered = useOrderedClaims(existingClaims)
 
   const totalClaims = allClaimsOrdered.length
   const verdictedClaims = allClaimsOrdered.filter(c =>
@@ -42,15 +69,21 @@ export function ClaimToolbar({
   ).length
   const progress = totalClaims > 0 ? (verdictedClaims / totalClaims) * 100 : 0
 
+  const showDetection = articleContent !== undefined
+  if (!showDetection && totalClaims === 0) return null
+
   return (
-    <div className={cn('flex items-center justify-between gap-2 px-3 py-1.5 border-b bg-background', className)}>
+    <div
+      className={cn(
+        'flex items-center gap-2 px-3 py-1.5 border-b bg-background',
+        showDetection ? 'justify-between' : 'justify-end',
+        className
+      )}
+    >
       {/* Left: detect button */}
-      <ClaimDetectionButton
-        articleContent={articleContent}
-        existingClaims={existingClaims}
-        size="sm"
-        variant={totalClaims === 0 ? 'prominent' : 'inline'}
-      />
+      {showDetection && (
+        <ArticleClaimDetection articleContent={articleContent} existingClaims={existingClaims} />
+      )}
 
       {/* Right: progress + claims list */}
       <div className="flex items-center gap-2 shrink-0">

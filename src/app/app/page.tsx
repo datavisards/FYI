@@ -17,7 +17,12 @@ import dynamic from 'next/dynamic'
 import { SplitPane } from '@/components/layout/SplitPane'
 
 import { ArticleViewer } from '@/components/article/ArticleViewer'
-import { ClaimInvestigationPanel, ClaimToolbar, ClaimsListPanel } from '@/components/claim'
+import {
+  ArticleClaimDetection,
+  ClaimInvestigationPanel,
+  ClaimToolbar,
+  ClaimsListPanel,
+} from '@/components/claim'
 import { ToolTable } from '@/components/tool-table'
 import { ChatLayout } from '@/components/tool-ai-chat/ChatLayout'
 import { AutoCheckPanel } from '@/components/tool-ai-chat/AutoCheckPanel'
@@ -386,7 +391,11 @@ export default function AppPage() {
           left={
             <div className="h-full flex flex-col">
               {article && !pendingUrl && !importError && !changingArticle && (
-                <div className="flex justify-end border-b px-3 py-1.5 shrink-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5 shrink-0">
+                  <ArticleClaimDetection
+                    articleContent={article.title + '\n\n' + article.content}
+                    existingClaims={article.claims || []}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -427,7 +436,6 @@ export default function AppPage() {
           right={
             <div className="h-full flex flex-col min-h-0">
               <ClaimToolbar
-                articleContent={article ? article.title + '\n\n' + article.content : ''}
                 existingClaims={article?.claims || []}
                 onOpenClaimsList={() => setClaimsSheetOpen(true)}
               />
