@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { CSVUploadButton } from './CSVUploadButton'
+import { FetchDatasetButton } from './FetchDatasetButton'
 import { Filter, ChevronUp, ChevronDown, ChevronsUpDown, X, Table2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -438,7 +439,10 @@ export function ToolTable() {
             <p className="text-sm font-medium text-muted-foreground">No data uploaded</p>
             <p className="text-xs text-muted-foreground/70 mt-1">Upload a CSV file to explore data in this table.</p>
           </div>
-          <CSVUploadButton compact />
+          <div className="flex items-center gap-1">
+            <FetchDatasetButton />
+            <CSVUploadButton compact />
+          </div>
         </div>
       </div>
     )
@@ -481,6 +485,7 @@ export function ToolTable() {
           </Select>
         )}
         <div className="flex-1" />
+        <FetchDatasetButton />
         <CSVUploadButton compact />
       </div>
 

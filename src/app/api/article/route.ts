@@ -7,6 +7,7 @@ export { OPTIONS } from '@/lib/cors'
 const MAX_BYTES = 5 * 1024 * 1024
 const MAX_REDIRECTS = 5
 const TIMEOUT_MS = 10_000
+const DATA_TYPE = /text\/(csv|plain|tab-separated-values)|application\/(csv|vnd\.ms-excel)/i
 
 const fail = (error: string, status: number) => Response.json({ error }, { status })
 
@@ -56,6 +57,8 @@ export async function GET(req: NextRequest) {
     return fail('This endpoint is only for the FYI app.', 403)
   }
 
+  // kind=data also accepts CSV and TSV files, for Fetch dataset.
+  const wantsData = req.nextUrl.searchParams.get('kind') === 'data'
   let url = parseTargetUrl(req.nextUrl.searchParams.get('url') ?? '')
   if (!url) return fail('That is not a public web page address.', 400)
 
@@ -68,7 +71,9 @@ export async function GET(req: NextRequest) {
         signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; FYI-ArticleFetcher/1.0)',
-          Accept: 'text/html,application/xhtml+xml',
+          Accept: wantsData
+            ? 'text/csv,text/tab-separated-values,text/html;q=0.9,*/*;q=0.8'
+            : 'text/html,application/xhtml+xml',
         },
       })
       const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
@@ -86,12 +91,16 @@ export async function GET(req: NextRequest) {
     if (!res.ok) return fail(`The site answered with an error (${res.status}).`, 422)
 
     const contentType = res.headers.get('content-type') ?? ''
-    if (!/html/i.test(contentType)) return fail('That address is not a web page.', 422)
+    const isHtml = /html/i.test(contentType)
+    const isData =
+      wantsData && (DATA_TYPE.test(contentType) || /\.(csv|tsv)$/i.test(new URL(url).pathname))
+    if (!isHtml && !isData) return fail('That address is not a web page.', 422)
 
     const bytes = await readCapped(res)
     if (!bytes) return fail('That page is too large to load.', 422)
 
-    return Response.json({ url, html: decode(bytes, contentType) })
+    const text = decode(bytes, contentType)
+    return Response.json(isHtml ? { url, html: text } : { url, data: text })
   } catch (err) {
     return (err as Error).name === 'TimeoutError'
       ? fail('The site took too long to respond.', 504)

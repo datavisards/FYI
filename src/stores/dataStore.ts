@@ -42,6 +42,8 @@ export interface DataState {
   loadCSVFromURL: (url: string) => Promise<void>
   uploadCSVFile: (file: File) => Promise<void>
   removeCSVDataset: (name: string) => void
+  /** Adds datasets, numbering any name that is already taken. */
+  addDatasets: (data: CSVData[]) => void
 
   addGeneratedPlot: (plot: GeneratedPlot) => void
 
@@ -126,6 +128,16 @@ export const useDataStore = create<DataState>()(
         } catch (e) {
           set({ dataLoadError: (e as Error).message, isLoadingData: false })
         }
+      },
+
+      addDatasets: (data) => {
+        const next = [...(get().pageTableData ?? [])]
+        for (const dataset of data) {
+          let name = dataset.name
+          for (let n = 2; next.some((d) => d.name === name); n++) name = `${dataset.name} (${n})`
+          next.push({ ...dataset, name })
+        }
+        set({ pageTableData: next, selectedVisDataset: get().selectedVisDataset ?? next[0]?.name ?? null })
       },
 
       removeCSVDataset: (name) => {

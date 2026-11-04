@@ -124,7 +124,7 @@ export default function PrivacyPolicyPage() {
             the server and pay for. When you use them this way, the article text, claims, chat
             messages and uploaded data you use with those features are relayed to{' '}
             <strong>OpenRouter</strong> under that key, and to <strong>Perplexity Sonar</strong> if
-            you enable Web Search. Your IP address is used to limit how many requests you can make
+            you enable Web Search or use Fetch dataset. Your IP address is used to limit how many requests you can make
             per minute. Do not submit information you are not willing to send to those providers.
           </p>
           <p>If you enter your own key on the website, requests use your key and provider instead.</p>
