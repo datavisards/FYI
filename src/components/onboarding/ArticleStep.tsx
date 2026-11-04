@@ -5,7 +5,7 @@ import { AlignLeft, ArrowRight, Table2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { StepShell, type StepList } from '@/components/onboarding/StepShell'
+import { StepShell } from '@/components/onboarding/StepShell'
 import { cn } from '@/lib/utils'
 
 
@@ -63,13 +63,16 @@ export function ArticleStep({
   samples,
   onUseSample,
   onUseText,
-  steps,
+  importError,
+  onBack,
 }: {
   samples: SampleArticle[]
   onUseSample: (sample: SampleArticle) => void
   onUseText: (text: string) => void
-  /** Omit for the full flow. */
-  steps?: StepList
+  /** Why an article linked from another site did not load. */
+  importError?: { message: string; url: string | null } | null
+  /** Returns to the article already open, if there is one. */
+  onBack?: () => void
 }) {
   const [selected, setSelected] = useState<string | null>(samples[0]?.id ?? null)
   const [text, setText] = useState('')
@@ -85,18 +88,40 @@ export function ArticleStep({
 
   return (
     <StepShell
-      current="article"
-      steps={steps}
       title="Choose an article"
       description="FYI checks the data claims in a piece of writing against a dataset."
+      onBack={onBack}
       footer={
         <Button size="sm" onClick={commit} disabled={!canContinue} className="gap-1.5">
-          Continue
+          Start investigating
           <ArrowRight className="size-4" />
         </Button>
       }
     >
       <div className="space-y-3">
+        {importError && (
+          <div role="alert" className="border-destructive/40 rounded-lg border p-4 text-sm">
+            <p className="font-medium">{importError.message}</p>
+            <p className="text-muted-foreground mt-1">
+              {importError.url ? (
+                <>
+                  Copy the text from{' '}
+                  <a
+                    href={importError.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    the original page
+                  </a>{' '}
+                  and paste it below.
+                </>
+              ) : (
+                'Paste the article text below instead.'
+              )}
+            </p>
+          </div>
+        )}
         {samples.map((s) => (
           <Option key={s.id} selected={selected === s.id} onSelect={() => setSelected(s.id)}>
             <div className="flex items-start gap-3">

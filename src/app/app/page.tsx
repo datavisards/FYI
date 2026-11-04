@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { useExplorationStore } from '@/stores/explorationStore'
 import { useClaimStore } from '@/stores/claimStore'
 import { useArticleStore } from '@/stores/articleStore'
 import { useDataStore } from '@/stores/dataStore'
-import { useOnboardingStore } from '@/stores/onboardingStore'
 import { eventLogger } from '@/lib/tracking/eventLogger'
 import { parseCSV } from '@/lib/data/csvFetcher'
+import { importArticle } from '@/lib/article/importArticle'
+import { parseTargetUrl } from '@/lib/article/targetUrl'
 
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -24,10 +25,6 @@ import { ActionHistoryPanel } from '@/components/action-history'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArticleStep, type SampleArticle } from '@/components/onboarding/ArticleStep'
-import { DataStep } from '@/components/onboarding/DataStep'
-import { KeyStep } from '@/components/onboarding/KeyStep'
-import { STEPS } from '@/components/onboarding/StepShell'
-import { useHasApiKey } from '@/stores/settingsStore'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import {
   DropdownMenu,
@@ -96,20 +93,12 @@ export default function AppPage() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [article, setArticle] = useState<Article | null>(null)
-  const step = useOnboardingStore((s) => s.step)
-  const setStep = useOnboardingStore((s) => s.setStep)
-  const [datasetLoading, setDatasetLoading] = useState(false)
-  const [datasetError, setDatasetError] = useState<string | null>(null)
   const [claimsSheetOpen, setClaimsSheetOpen] = useState(false)
-  const initRef = useRef(false)
-
-  // With a key already saved the Model step has nothing to ask, so skip it and
-  // drop it from the stepper. The header dialog remains the way to change it.
-  const hasKey = useHasApiKey()
-  const setupSteps = useMemo(
-    () => (hasKey ? STEPS.filter((s) => s.id !== 'key') : STEPS),
-    [hasKey]
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null)
+  const [importError, setImportError] = useState<{ message: string; url: string | null } | null>(
+    null
   )
+  const initRef = useRef(false)
 
   /*
      * Hydration must finish first: zustand rehydrates on the client after this
@@ -123,16 +112,29 @@ export default function AppPage() {
       const saved = useArticleStore.getState().getCurrentArticle()
       if (saved) setArticle(saved)
 
-      const { step: stored, setStep: setStored } = useOnboardingStore.getState()
-      const hasSession = Boolean(useExplorationStore.getState().session)
-      if (!saved) setStored('article')
-      else if (hasSession && stored !== 'workspace') setStored('workspace')
-      else if (!hasSession && stored === 'workspace') setStored('data')
+      // An article saved before there was a session, as the old setup steps allowed.
+      if (saved && !useExplorationStore.getState().session) {
+        useExplorationStore.getState().startSession(saved.$id)
+      }
+
+      // Arrived through the address prefix. Reopening the same article keeps its progress.
+      const requested = new URLSearchParams(window.location.search).get('url')
+      if (requested !== null) {
+        const target = parseTargetUrl(requested)
+        if (!target) {
+          setImportError({ message: 'That is not a public web page address.', url: null })
+          window.history.replaceState(null, '', '/app')
+        } else if (saved?.metadata?.url === target) {
+          window.history.replaceState(null, '', '/app')
+        } else {
+          setPendingUrl(target)
+        }
+      }
 
       setIsLoading(false)
     }
 
-    const stores = [useArticleStore, useExplorationStore, useOnboardingStore]
+    const stores = [useArticleStore, useExplorationStore]
     if (stores.every((s) => s.persist.hasHydrated())) {
       restore()
       return
@@ -169,12 +171,10 @@ export default function AppPage() {
       setHighlightedClaimId(null)
       setActiveClaim(null)
       setArticle(null)
-      setDatasetLoading(false)
-      setDatasetError(null)
-      setStep('article')
+      setImportError(null)
       toast.success('Session reset')
     }
-  }, [clearAll, setActiveClaim, setArticles, setSelectedClaim, setHighlightedClaimId, setStep])
+  }, [clearAll, setActiveClaim, setArticles, setSelectedClaim, setHighlightedClaimId])
 
   const handleExport = useCallback(() => {
     const expState = useExplorationStore.getState()
@@ -201,9 +201,8 @@ export default function AppPage() {
       setActiveClaim(null)
       setArticle(nextArticle)
       setArticles([nextArticle])
-      setDatasetError(null)
-      setDatasetLoading(Boolean(sampleDataset))
-      setStep('data')
+      setImportError(null)
+      startSession(nextArticle.$id)
 
       if (sampleDataset) {
         fetch(sampleDataset.path)
@@ -215,16 +214,35 @@ export default function AppPage() {
             const { headers, rows } = parseCSV(raw)
             useDataStore.getState().setPageTableData([{ name: sampleDataset.name, headers, rows }])
             useDataStore.getState().setSelectedVisDataset(sampleDataset.name)
-            setDatasetLoading(false)
           })
           .catch((err: Error) => {
-            setDatasetError(err.message || `Could not load ${sampleDataset.name}.`)
-            setDatasetLoading(false)
+            toast.error(err.message || `Could not load ${sampleDataset.name}.`)
           })
       }
     },
-    [clearAll, setActiveClaim, setArticles, setHighlightedClaimId, setSelectedClaim, setStep]
+    [clearAll, setActiveClaim, setArticles, setHighlightedClaimId, setSelectedClaim, startSession]
   )
+
+  useEffect(() => {
+    if (!pendingUrl) return
+    const controller = new AbortController()
+    const finish = () => {
+      window.history.replaceState(null, '', '/app')
+      setPendingUrl(null)
+    }
+    importArticle(pendingUrl, controller.signal)
+      .then((imported) => {
+        if (controller.signal.aborted) return
+        activateArticle(imported)
+        finish()
+      })
+      .catch((err: Error) => {
+        if (controller.signal.aborted) return
+        setImportError({ message: err.message, url: pendingUrl })
+        finish()
+      })
+    return () => controller.abort()
+  }, [pendingUrl, activateArticle])
 
   const handleUseCustomText = useCallback(
     (text: string) => {
@@ -247,21 +265,15 @@ export default function AppPage() {
     [activateArticle]
   )
 
-  const handleStartInvestigation = useCallback(() => {
-    if (!article) return
-    if (!useExplorationStore.getState().session) {
-      startSession(article.$id)
-    }
-    setStep('workspace')
-  }, [article, startSession, setStep])
-
-  if (isLoading) {
+  if (isLoading || pendingUrl) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="space-y-4 text-center">
           <Skeleton className="h-12 w-12 rounded-full mx-auto" />
           <Skeleton className="h-4 w-48" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
+          <p className="text-sm text-muted-foreground">
+            {pendingUrl ? 'Loading the article...' : 'Loading...'}
+          </p>
         </div>
       </div>
     )
@@ -366,26 +378,15 @@ export default function AppPage() {
         </div>
       </header>
 
-      {step !== 'workspace' || !article ? (
+      {!article || importError ? (
         <div className="flex-1 min-h-0">
-          {step === 'article' || !article ? (
-            <ArticleStep
-              samples={SAMPLES}
-              onUseSample={handleUseSample}
-              onUseText={handleUseCustomText}
-              steps={setupSteps}
-            />
-          ) : step === 'data' ? (
-            <DataStep
-              datasetLoading={datasetLoading}
-              datasetError={datasetError}
-              onBack={() => setStep('article')}
-              onContinue={hasKey ? handleStartInvestigation : () => setStep('key')}
-              steps={setupSteps}
-            />
-          ) : (
-            <KeyStep onBack={() => setStep('data')} onStart={handleStartInvestigation} />
-          )}
+          <ArticleStep
+            samples={SAMPLES}
+            onUseSample={handleUseSample}
+            onUseText={handleUseCustomText}
+            importError={importError}
+            onBack={article ? () => setImportError(null) : undefined}
+          />
         </div>
       ) : (
       <div className="flex-1 min-h-0">

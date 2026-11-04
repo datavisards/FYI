@@ -5,13 +5,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 
-export const STEPS = [
-  { id: 'article', label: 'Article' },
-  { id: 'data', label: 'Data' },
-  { id: 'key', label: 'Model' },
-] as const
-
-export type StepId = (typeof STEPS)[number]['id']
+export type StepId = 'article' | 'data' | 'key'
 
 export type StepList = readonly { id: StepId; label: string }[]
 
@@ -57,15 +51,15 @@ function Stepper({ current, steps }: { current: StepId; steps: StepList }) {
 
 export function StepShell({
   current,
-  steps = STEPS,
+  steps,
   title,
   description,
   children,
   onBack,
   footer,
 }: {
-  current: StepId
-  /** Defaults to the web app's three steps. */
+  current?: StepId
+  /** The extension's setup flow. Without it the screen stands alone, with no stepper. */
   steps?: StepList
   title: string
   description?: string
@@ -76,9 +70,9 @@ export function StepShell({
   return (
     <div className="flex h-full min-h-0 justify-center overflow-y-auto px-5 py-10 sm:px-8">
       <div className="flex w-full max-w-lg flex-col">
-        <Stepper current={current} steps={steps} />
+        {current && steps && <Stepper current={current} steps={steps} />}
 
-        <div className="mt-8">
+        <div className={current && steps ? 'mt-8' : undefined}>
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {description && (
             <p className="text-muted-foreground mt-1 text-sm">{description}</p>
